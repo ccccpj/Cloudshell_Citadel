@@ -1,0 +1,116 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const Menu = require('../minigame/common/MenuComponent');
+const Upgrades = require('../minigame/common/UpgradeComponent');
+const System = require('../minigame/common/UpgradeSystem');
+const Enhancement = require('../minigame/common/EnhancementComponent');
+const Experience = require('../minigame/common/ExperienceSystem');
+const Level = require('../minigame/common/LevelManager');
+
+const ctx = new Proxy({
+  measureText: value => ({ width: [...value].length * 13 }),
+  createRadialGradient: () => ({ addColorStop() {} })
+}, { get: (obj, key) => obj[key] || (() => {}) });
+const canvas = { getContext: () => ctx };
+const tap = rect => [rect.x + rect.width / 2, rect.y + rect.height / 2];
+const info = (w, h) => ({ windowWidth: w, windowHeight: h, safeTop: 60, safeBottom: 24 });
+
+test('三选一先按幸运权重抽稀有度，同一手牌不重复且稀有卡有对应数值', t => {
+  const system = new Enhancement(canvas, info(320, 568)).enhancementSystem;
+  let quantile = 0;
+  t.mock.method(Math, 'random', () => quantile);
+  for (const luck of [0, 100]) {
+    system.playerStats.luckyValue = luck;
+    const counts = [0, 0, 0, 0];
+    for (let i = 0; i < 200; i++) {
+      quantile = (i + 0.5) / 200;
+      const hand = system.generateRandomEnhancements(3);
+      assert.equal(new Set(hand.map(card => card.type)).size, 3);
+      for (const card of hand) {
+        counts[card.tier - 1]++;
+        assert.ok(system.enhancementCards[card.type].values[card.tier] !== undefined);
+      }
+    }
+    const weights = system.calculateCardProbabilities();
+    assert.deepEqual(counts, Object.values(weights).map(percent => Math.round(percent * 6)));
+  }
+});
+
+test('强化选项一次取值，保留点数后完成回调', () => {
+  const panel = new Enhancement(canvas, info(320, 568));
+  const exp = new Experience();
+  exp.addEnhancePoints(2);
+  let complete = 0;
+  panel.showEnhancementScreen(exp, null, () => { complete++; });
+  const startingAttack = panel.enhancementSystem.playerStats.attackPower;
+  const card = { type: 'attack', name: '攻击力提升', tier: 1, value: 7.1 };
+  card.description = panel.enhancementSystem.getEnhancementDescription(card.type, card.tier, card.value);
+  assert.match(card.description, /7\.1%/);
+  panel.state.availableCards[0] = card;
+  panel.draw(ctx);
+  panel.handleTouch(...tap(card.bounds), exp);
+  assert.equal(panel.enhancementSystem.playerStats.attackPower, startingAttack + startingAttack * 0.071);
+  panel.draw(ctx);
+  panel.handleTouch(...tap(panel.enhancementCloseButton), exp);
+  assert.equal(exp.getExperienceStatus().enhancePoints, 1);
+  assert.equal(complete, 1);
+  assert.equal(panel.isShowing(), false);
+});
+
+test('无伤生存才触发完美奖励；暂停时关卡时间冻结', () => {
+  const level = new Level(canvas, info(375, 667));
+  const results = [];
+  level.setLevelCompleteCallback((number, perfect) => results.push(perfect));
+  for (const hurt of [false, true]) {
+    level.startLevel();
+    if (hurt) level.markPlayerHit();
+    level.togglePause();
+    const before = level.timeRemaining;
+    level.update(1);
+    assert.equal(level.timeRemaining, before);
+    level.togglePause();
+    level.update(before);
+    level.update(1);
+  }
+  assert.deepEqual(results, [true, false]);
+});
+
+for (const [w, h] of [[320, 568], [375, 667], [430, 932]]) {
+  test(w + ' × ' + h + ' 菜单、底部控件及最后一个觉醒都可触及', () => {
+    const viewport = info(w, h);
+    const menu = new Menu(canvas, ctx, viewport);
+    menu.draw();
+    menu.handleTouch(...tap(menu.startButton));
+    menu.draw();
+    assert.equal(menu.handleTouch(...tap(menu.healthAdviceAcceptButton)), 'startGame');
+
+    const exp = new Experience();
+    exp.playerExperience.upgradePoints = 120;
+    const system = new System();
+    const panel = new Upgrades(canvas, viewport);
+    let complete = 0;
+    panel.showUpgradeScreen(system, exp, () => { complete++; });
+    const click = rect => panel.handleClick(...tap(rect), system, exp);
+    panel.draw(ctx);
+    const fire = panel.rows.find(row => row.key === 'fire');
+    click(fire.rect);
+    panel.draw(ctx);
+    assert.equal(panel.state.selectedWaveType, 'fire');
+    const points = exp.getExperienceStatus().upgradePoints;
+    panel.scrollBy(2000);
+    panel.draw(ctx);
+    assert.equal(exp.getExperienceStatus().upgradePoints, points);
+    const last = panel.rows.at(-1);
+    assert.equal(last.key, 'phoenixRebirth');
+    assert.ok(last.rect.y >= viewport.safeTop);
+    assert.ok(last.rect.y + last.rect.height < panel.continueButton.y);
+    click(last.rect);
+    panel.draw(ctx);
+    assert.ok(panel.detailBack);
+    assert.equal(panel.detailBuy, null);
+    click(panel.detailBack);
+    panel.draw(ctx);
+    click(panel.continueButton);
+    assert.equal(complete, 1);
+  });
+}

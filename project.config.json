@@ -1,0 +1,9 @@
+{
+  "projectname": "守住圆心",
+  "compileType": "game",
+  "appid": "wx802e3d30a6548c0a",
+  "miniprogramRoot": "minigame/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "condition": {},
+  "setting": { "es6": true, "minified": true, "urlCheck": true }
+}

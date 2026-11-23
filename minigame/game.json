@@ -1,0 +1,31 @@
+{
+  "deviceOrientation": "portrait",
+  "openDataContext": "openDataContext",
+  "permission": {
+    "scope.WxFriendInteraction": {
+      "desc": "用于展示同玩好友的最高分排行榜"
+    }
+  },
+  "subpackages": [
+    {
+      "name": "formEarly",
+      "root": "formEarly"
+    },
+    {
+      "name": "formLater",
+      "root": "formLater"
+    },
+    {
+      "name": "bestiary",
+      "root": "bestiary"
+    },
+    {
+      "name": "vfx",
+      "root": "vfx"
+    },
+    {
+      "name": "controls",
+      "root": "controls"
+    }
+  ]
+}
