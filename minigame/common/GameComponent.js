@@ -124,14 +124,21 @@ class GameComponent {
     this.experienceSystem.gainExpFromLevel(level, perfect);
     const points = this.currentLevelKills > 0 ? Math.min(3, 1 + Math.floor(this.currentLevelKills / (6 + level))) : 0;
     if (points) this.experienceSystem.addEnhancePoints(points);
-    this.waveClear = { level, perfect, kills: this.currentLevelKills, elapsed: 0 };
+    this.waveClear = { elapsed: 0 };
     this.currentLevelKills = 0;
   }
 
   advanceWaveClear(milliseconds) {
-    this.waveClear.elapsed += milliseconds;
-    if (this.waveClear.elapsed < WAVE_CLEAR_MS) return;
-    this.waveClear = null;
+    const wipe = this.waveClear;
+    const previous = wipe.elapsed;
+    wipe.elapsed += milliseconds;
+    // Swap the live scene while the cloud bank fills the viewport.
+    const coveredAt = WAVE_CLEAR_MS / 2;
+    if (previous < coveredAt && wipe.elapsed >= coveredAt) this.openLevelRewards();
+    if (wipe.elapsed >= WAVE_CLEAR_MS) this.waveClear = null;
+  }
+
+  openLevelRewards() {
     const next = () => {
       this.levelManager.nextLevel();
       this.resetFrameClock();
@@ -350,15 +357,16 @@ class GameComponent {
       this.view.drawResult(this, video.available() && !this.reviveState.used && !this.reviveDeclined);
       return;
     }
-    this.view.drawArena(this);
-    this.view.drawHud(this);
-    if (this.waveClear) {
-      this.view.drawWaveClear(this.waveClear);
-      return;
+    if (this.enhancementComponent.isVisible()) {
+      this.enhancementComponent.draw(this.ctx);
+    } else if (this.upgradeComponent.isVisible()) {
+      this.upgradeComponent.draw(this.ctx);
+    } else {
+      this.view.drawArena(this);
+      this.view.drawHud(this);
+      this.levelManager.draw();
     }
-    this.levelManager.draw();
-    this.enhancementComponent.draw(this.ctx);
-    this.upgradeComponent.draw(this.ctx);
+    if (this.waveClear) this.view.drawWaveClear(this.waveClear.elapsed / WAVE_CLEAR_MS);
   }
 }
 

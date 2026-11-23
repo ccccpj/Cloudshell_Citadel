@@ -4,6 +4,7 @@ const { BATTLEFIELD } = require('./GameConfig');
 const Art = require('./Art');
 const { drawEffect, duration } = require('./FlightEffects');
 const TAU = Math.PI * 2;
+const PASSING_CLOUDS = 'sky/passing-clouds.png';
 function circle(ctx, x, y, radius, fill, stroke, weight = 1) {
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, TAU);
@@ -89,6 +90,7 @@ class BattleView {
     ctx.fillStyle = topFade; ctx.fillRect(0, 0, w, top + 65);
     label(ctx, '第 ' + game.levelManager.currentLevel + ' 关', left, top + 8, 19, colors.text, 'left', true);
     const seconds = Math.max(0, Math.ceil(game.levelManager.timeRemaining - 1e-8));
+    if (seconds === 1) Art.image(PASSING_CLOUDS);
     label(ctx, seconds + ' 秒', left + 94, top + 8, 14, seconds <= 5 ? '#ffba8f' : colors.text);
     label(ctx, String(game.score), right, top + 8, 24, colors.text, 'right', true);
     const exp = game.experienceSystem.getExperienceStatus();
@@ -141,20 +143,28 @@ class BattleView {
     ctx.restore();
   }
 
-  drawWaveClear({ level, perfect, kills, elapsed }) {
+  drawWaveClear(progress) {
+    if (progress <= 0 || progress >= 1) return;
     const ctx = this.ctx, { width, height } = this.canvas;
-    const fade = Math.min(1, elapsed / 150);
-    const center = width / 2, boxWidth = Math.min(300, width - 44);
-    const box = { x: center - boxWidth / 2, y: height * .37 - 40, width: boxWidth, height: 80 };
-    ctx.save();
-    ctx.fillStyle = 'rgba(11, 31, 34, ' + (.22 + fade * .2) + ')';
-    ctx.fillRect(0, 0, width, height);
-    ctx.translate(0, 6 * (1 - fade));
-    panel(ctx, box, colors.surface, 12);
-    label(ctx, '第 ' + level + ' 关守住了', center, box.y + 29, 24, colors.text, 'center', true);
-    const summary = (perfect ? '无伤通关' : '通关') + '  ·  击败 ' + kills + ' 名来敌';
-    label(ctx, summary, center, box.y + 56, 14, colors.gold, 'center');
-    ctx.restore();
+    const travel = progress * progress * (3 - 2 * progress);
+    const image = Art.image(PASSING_CLOUDS);
+    // The middle 60% of the strip is opaque. Cover the viewport there when the scene changes.
+    const bankHeight = Math.max(height * 2.3, width * 1.08 * 1055 / 450);
+    const y = -bankHeight + (height + bankHeight) * travel;
+    if (image) {
+      const bankWidth = bankHeight * image.width / image.height;
+      const x = (width - bankWidth) / 2 + (travel - 0.5) * width * 0.06;
+      ctx.drawImage(image, x, y, bankWidth, bankHeight);
+      return;
+    }
+    // A soft bank preserves the wipe even if the image was evicted on a low-memory device.
+    const mist = ctx.createLinearGradient(0, y, 0, y + bankHeight);
+    mist.addColorStop(0, 'rgba(219,226,214,0)');
+    mist.addColorStop(0.2, '#e4dcc6');
+    mist.addColorStop(0.8, '#c4d6cf');
+    mist.addColorStop(1, 'rgba(197,214,211,0)');
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, y, width, bankHeight);
   }
 
   drawResult(game, canRevive) {
