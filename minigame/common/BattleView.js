@@ -141,6 +141,22 @@ class BattleView {
     ctx.restore();
   }
 
+  drawWaveClear({ level, perfect, kills, elapsed }) {
+    const ctx = this.ctx, { width, height } = this.canvas;
+    const fade = Math.min(1, elapsed / 150);
+    const center = width / 2, boxWidth = Math.min(300, width - 44);
+    const box = { x: center - boxWidth / 2, y: height * .37 - 40, width: boxWidth, height: 80 };
+    ctx.save();
+    ctx.fillStyle = 'rgba(11, 31, 34, ' + (.22 + fade * .2) + ')';
+    ctx.fillRect(0, 0, width, height);
+    ctx.translate(0, 6 * (1 - fade));
+    panel(ctx, box, colors.surface, 12);
+    label(ctx, '第 ' + level + ' 关守住了', center, box.y + 29, 24, colors.text, 'center', true);
+    const summary = (perfect ? '无伤通关' : '通关') + '  ·  击败 ' + kills + ' 名来敌';
+    label(ctx, summary, center, box.y + 56, 14, colors.gold, 'center');
+    ctx.restore();
+  }
+
   drawResult(game, canRevive) {
     const { width: w, height: h } = this.canvas;
     const ctx = this.ctx;

@@ -26,12 +26,14 @@ class UpgradeComponent {
   }
 
   showUpgradeScreen(upgradeSystem, experienceSystem, completeCallback = null) {
-    if (experienceSystem.getExperienceStatus().upgradePoints <= 0) return false;
+    const points = experienceSystem.getExperienceStatus().upgradePoints;
+    if (points <= 0) return false;
     this.upgradeSystem = upgradeSystem;
     this.experienceSystem = experienceSystem;
     this.completeCallback = completeCallback;
     this.state.isShowing = true;
     this.selectWave(null);
+    this.purchaseRequired = this.availablePurchases(points).length > 0;
     return true;
   }
 
@@ -53,9 +55,8 @@ class UpgradeComponent {
     return true;
   }
 
-  listRows(points) {
+  listRows(points, wave = this.state.selectedWaveType) {
     const system = this.upgradeSystem;
-    const wave = this.state.selectedWaveType;
     if (!wave) {
       return Object.entries(elements).map(([key, [title, ink, caption]]) => {
         const unlocked = system.isWaveUnlocked(key);
@@ -82,6 +83,25 @@ class UpgradeComponent {
     return [...upgrades, ...awakenings];
   }
 
+  availablePurchases(points) {
+    const options = [];
+    const system = this.upgradeSystem;
+    for (const element of this.listRows(points, null)) {
+      if (!element.unlocked) {
+        if (element.enabled) options.push(element);
+        continue;
+      }
+      for (const row of this.listRows(points, element.key)) {
+        if (row.kind === 'upgrade' && row.enabled) options.push({ ...row, wave: element.key });
+        if (row.kind === 'awakening' && points >= system.upgradeConfig.awakeningCost &&
+            system.canUnlockAwakening(element.key, row.key)) {
+          options.push({ ...row, wave: element.key, cost: system.upgradeConfig.awakeningCost });
+        }
+      }
+    }
+    return options;
+  }
+
   draw(ctx) {
     if (!this.isShowing()) return;
     const view = bounds(this.systemInfo);
@@ -98,9 +118,11 @@ class UpgradeComponent {
     const contentH = this.listBottom - this.listTop;
     const list = this.listRows(points);
     const columns = wave ? 2 : 1;
-    const gap = 7;
-    const step = wave ? 80 : Math.max(64, Math.min(88, (contentH + gap) / 5));
-    this.maxScroll = Math.max(0, Math.ceil(list.length / columns) * step - gap - contentH);
+    const gap = 10;
+    const rowCount = Math.ceil(list.length / columns);
+    const fit = (contentH + gap) / rowCount;
+    const step = wave ? Math.max(94, Math.min(108, fit)) : Math.max(74, Math.min(118, fit));
+    this.maxScroll = Math.max(0, rowCount * step - gap - contentH);
     this.scrollOffset = Math.min(this.scrollOffset, this.maxScroll);
     label(ctx, this.notice || (this.maxScroll ? '上下滑动查看' : wave ? '选择属性或觉醒' : '选择光波以升级或解锁'),
       x, top + 53, 13, this.notice ? colors.mint : colors.muted);
@@ -120,24 +142,28 @@ class UpgradeComponent {
       const skin = row.kind === 'awakening' ? 'row-selected' : 'row';
       if (!nine(ctx, 'component.' + skin, rect)) panel(ctx, rect, colors.surface, 8);
       if (!wave) {
-        const size = Math.min(62, height - 10);
-        const textX = left + size + 16;
+        const size = Math.min(62, height - 22);
+        const textX = left + size + 24;
         ctx.save();
         if (!row.unlocked) ctx.globalAlpha *= 0.67;
-        graphic(ctx, 'skill.' + row.key, left + 8, y + (height - size) / 2, size);
+        graphic(ctx, 'skill.' + row.key, left + 13, y + (height - size) / 2, size);
         ctx.restore();
-        label(ctx, row.title, textX, y + height * .34, 19, colors.text, 'left', true);
-        label(ctx, row.caption, textX, y + height * .67, 13, colors.muted);
-        label(ctx, row.action, left + cellW - 13, y + height / 2, 14,
+        label(ctx, row.title, textX, y + height / 2 - 11, 19, colors.text, 'left', true);
+        label(ctx, row.caption, textX, y + height / 2 + 11, 13, colors.muted);
+        label(ctx, row.action, left + cellW - 17, y + height / 2 - 1, 14,
           row.enabled ? colors.gold : colors.muted, 'right');
         return;
       }
       const artId = (row.kind === 'awakening' ? 'awakening.' : 'node.') + wave + '.' + row.key;
-      graphic(ctx, artId, left + 7, y + 7, 35);
-      label(ctx, row.title, left + 45, y + 19, 15, colors.text, 'left', true, cellW - 53);
-      label(ctx, row.caption, left + 45, y + 36, 11, colors.muted, 'left', false, cellW - 53);
-      label(ctx, row.action, left + cellW - 12, y + height - 16, 13,
-        row.enabled ? colors.gold : colors.muted, 'right');
+      const iconSize = cellW < 150 ? 28 : 32;
+      const textX = left + 13 + iconSize + 6;
+      const textWidth = left + cellW - 16 - textX;
+      const blockTop = y + (height - 84) / 2;
+      graphic(ctx, artId, left + 13, blockTop + 14, iconSize);
+      label(ctx, row.title, textX, blockTop + 21, 15, colors.text, 'left', true, textWidth);
+      label(ctx, row.caption, textX, blockTop + 40, 12, colors.muted, 'left', false, textWidth);
+      label(ctx, row.action, left + cellW - 17, blockTop + 62, 13,
+        row.enabled ? colors.gold : colors.muted, 'right', false, cellW - 34);
     });
     ctx.restore();
     if (this.maxScroll) {
@@ -153,7 +179,11 @@ class UpgradeComponent {
     const nextX = this.backButton ? x + this.backButton.width + 8 : x;
     this.continueButton = { x: nextX, y: bottom - 48, width: x + width - nextX, height: 48 };
     if (wave) button(ctx, this.backButton, '返回元素');
-    button(ctx, this.continueButton, '进入下一关', true);
+    ctx.save();
+    if (this.purchaseRequired) ctx.globalAlpha *= 0.72;
+    const nextLabel = this.purchaseRequired ? '先完成一项升级' : points ? '保留 ' + points + ' 点并继续' : '进入下一关';
+    button(ctx, this.continueButton, nextLabel, !this.purchaseRequired);
+    ctx.restore();
     if (this.detail) this.drawDetail(ctx, view, points);
     ctx.restore();
   }
@@ -203,6 +233,7 @@ class UpgradeComponent {
       if (contains(this.detailBack, x, y)) this.detail = null;
       else if (contains(this.detailBuy, x, y) && system.unlockAwakening(wave, this.detail.key)) {
         experience.spendPoints('upgradePoints', system.upgradeConfig.awakeningCost);
+        this.purchaseRequired = false;
         this.notice = '已觉醒' + this.detail.title;
         this.detail = null;
         if (changed) changed(system);
@@ -210,6 +241,7 @@ class UpgradeComponent {
       return true;
     }
     if (contains(this.continueButton, x, y)) {
+      if (this.purchaseRequired) return true;
       this.state.isShowing = false;
       const next = this.completeCallback;
       this.completeCallback = null;
@@ -232,6 +264,7 @@ class UpgradeComponent {
       const bought = row.kind === 'element' ? system.unlockWave(row.key) : system.upgradeWave(wave, row.key);
       if (bought) {
         experience.spendPoints('upgradePoints', row.cost);
+        this.purchaseRequired = false;
         if (row.kind === 'element') this.selectWave(row.key);
         this.notice = (row.kind === 'element' ? '已解锁' : '已提升') + row.title;
         if (changed) changed(system);

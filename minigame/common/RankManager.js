@@ -1,6 +1,6 @@
 const settings = require('../settings');
 const utils = require('./Utils');
-const { background, colors, graphic, nine, button, label } = require('./GameUI');
+const { background, colors, graphic, nine, button, buttonLabel, label } = require('./GameUI');
 let panel = null;
 let cloudReady = false;
 let uploading = false;
@@ -225,8 +225,8 @@ function draw(ctx, w, h, info = {}) {
       ctx.fillRect(left, tabY, tab.width, 46);
     }
     graphic(ctx, ['action.localRank', 'action.friendRank', 'action.worldRank'][i],
-      left + tab.width / 2 - 34, tabY + 11, 24);
-    label(ctx, tabs[i], left + tab.width / 2 + 11, tabY + 24, 15, colors.text, 'center', selected);
+      left + tab.width / 2 - 34, tabY + 10, 24);
+    buttonLabel(ctx, tab, tabs[i], { size: 15, bold: selected, offsetX: 11 });
   }
   if (view.tab === 0) {
     const podium = { x, y: bodyY, width, height: Math.min(85, bodyH) };

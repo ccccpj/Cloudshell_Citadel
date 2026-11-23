@@ -42,18 +42,19 @@ function buyRow(game, key, kind) {
   if (index < 0 || !rows[index].enabled) return false;
   panel.scrollBy(-panel.scrollOffset);
   panel.draw(ctx);
-  panel.scrollBy(index * 65);
-  panel.draw(ctx);
-  const row = panel.rows.find(r => r.key === key && r.kind === kind);
+  let row = panel.rows.find(r => r.key === key && r.kind === kind);
+  while (!row && panel.scrollOffset < panel.maxScroll) {
+    panel.scrollBy(panel.listBottom - panel.listTop);
+    panel.draw(ctx);
+    row = panel.rows.find(r => r.key === key && r.kind === kind);
+  }
   if (!row) throw new Error('Affordable upgrade has no visible control: ' + key);
   tap(game, row.rect, panel.listTop, panel.listBottom);
   panel.draw(ctx);
   return true;
 }
 
-// Buy only through the public list/detail controls. A bot banks remaining points
-// when its target is not yet affordable. Lateral spending starts once its first
-// awakening is unlocked; no profile receives synthetic experience or currency.
+// Purchases use the same list and detail controls as a player.
 function invest(game, element, targets) {
   const system = game.upgradeSystem;
   for (const [key, level] of targets) {
@@ -110,14 +111,10 @@ function chooseRewards(game, order, milestones, behaviorRng, profile) {
   if (stats.waveCount === 1) priority.unshift('waveCount');
   while (cards.isVisible()) {
     cards.draw(ctx);
-    if (profile === 'idle') {
-      tap(game, cards.enhancementCloseButton);
-      break;
-    }
     const offered = cards.state.availableCards;
     let card = offered[0];
     if (profile === 'novice') card = offered[Math.floor(behaviorRng() * offered.length)];
-    else {
+    else if (profile !== 'idle') {
       const weight = c => (priority.includes(c.type) ? priority.length - priority.indexOf(c.type) : 0) + c.tier * 0.65;
       card = offered.reduce((best, c) => weight(c) > weight(best) ? c : best);
     }
@@ -143,6 +140,23 @@ function chooseRewards(game, order, milestones, behaviorRng, profile) {
       specialize(game, element, milestones);
     } else {
       invest(game, element, [['damage', 2]]);
+    }
+  }
+  if (panel.purchaseRequired) {
+    // Spend the minimum when saving for an expensive target.
+    const points = game.experienceSystem.getExperienceStatus().upgradePoints;
+    const [choice] = panel.availablePurchases(points).sort((a, b) => a.cost - b.cost);
+    if (panel.state.selectedWaveType !== (choice.wave || null)) {
+      if (panel.backButton) {
+        tap(game, panel.backButton);
+        panel.draw(ctx);
+      }
+      if (choice.wave) buyRow(game, choice.wave, 'element');
+    }
+    buyRow(game, choice.key, choice.kind);
+    if (choice.kind === 'awakening') {
+      tap(game, panel.detailBuy);
+      panel.draw(ctx);
     }
   }
   tap(game, panel.continueButton);
@@ -213,6 +227,7 @@ function run(seed, name, order, levels, width, height) {
     if (game.gameState !== 'playing') break;
     if (!game.playing || game.levelManager.currentLevel !== level) {
       const hpAtClear = game.player.health;
+      if (game.waveClear) game.advanceWaveClear(1000);
       chooseRewards(game, order, milestones, inputRng, name);
       if (!game.playing || game.levelManager.currentLevel !== level + 1) throw new Error('Stage failed to advance: ' + level);
       stages.push({ level, hpAtClear, kills: milestones.kills, cards: milestones.cards,

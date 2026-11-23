@@ -15,6 +15,7 @@ const ranks = require('./RankManager');
 const video = require('./RewardedVideo');
 
 const STEP = 1 / 60;
+const WAVE_CLEAR_MS = 900;
 const ELEMENTS = [
   ['wind', '风波', '#bedfcf'], ['fire', '火波', '#ff9c83'],
   ['normal', '普通波', '#83f2cf'], ['ice', '冰波', '#9cdcf3'],
@@ -123,7 +124,14 @@ class GameComponent {
     this.experienceSystem.gainExpFromLevel(level, perfect);
     const points = this.currentLevelKills > 0 ? Math.min(3, 1 + Math.floor(this.currentLevelKills / (6 + level))) : 0;
     if (points) this.experienceSystem.addEnhancePoints(points);
+    this.waveClear = { level, perfect, kills: this.currentLevelKills, elapsed: 0 };
     this.currentLevelKills = 0;
+  }
+
+  advanceWaveClear(milliseconds) {
+    this.waveClear.elapsed += milliseconds;
+    if (this.waveClear.elapsed < WAVE_CLEAR_MS) return;
+    this.waveClear = null;
     const next = () => {
       this.levelManager.nextLevel();
       this.resetFrameClock();
@@ -150,7 +158,7 @@ class GameComponent {
   }
 
   get playing() {
-    return this.gameState === 'playing' && this.levelManager.isRunning && !this.levelManager.isPaused &&
+    return this.gameState === 'playing' && !this.waveClear && this.levelManager.isRunning && !this.levelManager.isPaused &&
       !this.enhancementComponent.isVisible() && !this.upgradeComponent.isVisible();
   }
 
@@ -208,6 +216,7 @@ class GameComponent {
   }
 
   handleTouch(x, y) {
+    if (this.waveClear) return;
     if (this.gameState === 'gameOver') {
       if (this.reviveState.isShowingAd) return;
       const action = this.view.resultActionAt(x, y);
@@ -245,7 +254,8 @@ class GameComponent {
     const delta = Math.min(0.25, Math.max(0, (now - this.lastUpdateTime) / 1000));
     this.lastUpdateTime = now;
     if (!this.playing) {
-      if (this.isDefeatAnimating()) this.defeatAge += delta * 1000;
+      if (this.waveClear) this.advanceWaveClear(delta * 1000);
+      else if (this.isDefeatAnimating()) this.defeatAge += delta * 1000;
       this.accumulator = 0;
       return;
     }
@@ -342,6 +352,10 @@ class GameComponent {
     }
     this.view.drawArena(this);
     this.view.drawHud(this);
+    if (this.waveClear) {
+      this.view.drawWaveClear(this.waveClear);
+      return;
+    }
     this.levelManager.draw();
     this.enhancementComponent.draw(this.ctx);
     this.upgradeComponent.draw(this.ctx);

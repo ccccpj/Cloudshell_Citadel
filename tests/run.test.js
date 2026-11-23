@@ -18,7 +18,7 @@ function setup(t) {
   const canvas = { width: 375, height: 667, getContext: () => ctx };
   const info = { windowWidth: 375, windowHeight: 667, safeTop: 50, safeBottom: 20 };
   const game = new Game(canvas, ctx, info);
-  return { game, canvas, info, store, tick(ms) { now += ms; game.update(); } };
+  return { game, canvas, info, store, tick(ms) { now += ms; game.update(); }, elapse(ms) { now += ms; } };
 }
 
 test('暂停和后台期间，波、敌人、关卡与释放冷却共用冻结的战斗时钟', t => {
@@ -89,22 +89,53 @@ test('满两点每秒的回复在一秒战斗内补两点，暂停保留半个�
   assert.equal(game.player.health, 72);
 });
 
-test('关末面板拦截底层攻击，保留强化点后计时器进入下一关', t => {
-  const { game } = setup(t);
+test('关末先停留在战斗画面，期间冻结战斗，完成领取后进入下一关', t => {
+  const { game, tick } = setup(t);
   game.currentLevelKills = 1;
   game.levelManager.timeRemaining = 0.01;
   game.step(1 / 60);
   game.draw();
-  assert.ok(game.enhancementComponent.isVisible());
-  const count = game.waveComponent.waves.length;
+  const elapsed = game.elapsed, count = game.waveComponent.waves.length;
   const normal = game.waveButtons[2];
-  game.handleTouch(normal.x, normal.y);
+  assert.equal(game.waveClear.level, 1);
+  assert.equal(game.waveClear.kills, 1);
+  for (let i = 0; i < 3; i++) {
+    game.handleTouch(normal.x, normal.y);
+    assert.equal(game.fireAt(normal.x, normal.y), false);
+    tick(250);
+  }
+  assert.equal(game.elapsed, elapsed);
+  assert.equal(game.enhancementComponent.isVisible(), false);
   assert.equal(game.waveComponent.waves.length, count);
-  const close = game.enhancementComponent.enhancementCloseButton;
-  game.handleTouch(close.x + 4, close.y + 4);
+  tick(150);
+  game.draw();
+  assert.equal(game.waveClear, null);
+  assert.ok(game.enhancementComponent.isVisible());
+  game.handleTouch(normal.x, normal.y);
+  assert.ok(game.enhancementComponent.isVisible());
+  assert.equal(game.levelManager.currentLevel, 1);
+  const card = game.enhancementComponent.state.availableCards[0].bounds;
+  game.handleTouch(card.x + card.width / 2, card.y + card.height / 2);
   assert.equal(game.levelManager.currentLevel, 2);
   assert.ok(game.levelManager.isRunning);
-  assert.equal(game.experienceSystem.getExperienceStatus().enhancePoints, 1);
+  assert.equal(game.experienceSystem.getExperienceStatus().enhancePoints, 0);
+});
+
+test('无奖励通关也有结算停留；后台时间不会跳过画面或增加战斗时间', t => {
+  const { game, tick, elapse } = setup(t);
+  game.levelManager.endLevel();
+  tick(250);
+  const elapsed = game.elapsed;
+  // Mirrors wx.onShow: the frame clock restarts at the instant of return.
+  elapse(60000);
+  game.resetFrameClock();
+  tick(0);
+  assert.equal(game.waveClear.elapsed, 250);
+  for (let i = 0; i < 3; i++) tick(250);
+  assert.equal(game.levelManager.currentLevel, 2);
+  assert.equal(game.elapsed, elapsed);
+  const config = require('../minigame/common/GameConfig').LEVEL_CONFIG;
+  assert.equal(game.levelManager.timeRemaining, Math.min(config.BASE_TIME + config.TIME_INCREMENT, config.MAX_TIME));
 });
 
 test('击杀即保存本机最高分，按敌人种类发经验，调整窗口只改变投影和按钮位置', t => {

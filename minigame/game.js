@@ -38,6 +38,28 @@ let frame = null;
 let refreshTimer = null;
 let hidden = false;
 let gesture = null;
+let rewardSurface = null;
+let acceptPressAt = 0;
+const RELEASE_GAP_MS = 300;
+
+// An incoming reward screen or a fresh hand must first see a break in repeated presses.
+function syncRewardSurface() {
+  const run = game.gameComponent;
+  let surface = null;
+  if (run) {
+    if (run.waveClear) surface = run.waveClear;
+    else if (run.enhancementComponent.isVisible()) surface = run.enhancementComponent.state.availableCards;
+    else if (run.upgradeComponent.isVisible()) {
+      const workshop = run.upgradeComponent;
+      surface = workshop.detail || workshop.state.currentView;
+    }
+  }
+  if (surface !== rewardSurface) {
+    rewardSurface = surface;
+    gesture = null;
+    acceptPressAt = Date.now() + RELEASE_GAP_MS;
+  }
+}
 
 function invalidate() {
   if (refreshTimer !== null) clearTimeout(refreshTimer);
@@ -48,6 +70,7 @@ function screenState() {
   if (ranks.isOpen()) return 'ranks';
   const run = game.gameComponent;
   if (!run) return game.menuComponent.page;
+  if (run.waveClear) return 'waveClear';
   if (run.gameState === 'gameOver') return 'result';
   if (run.enhancementComponent.isVisible()) return 'enhance';
   if (run.upgradeComponent.isVisible()) return 'upgrade';
@@ -56,7 +79,13 @@ function screenState() {
 wx.onTouchStart(event => {
   const touch = event.changedTouches[0];
   if (!touch) return;
+  syncRewardSurface();
   const state = screenState();
+  const now = Date.now();
+  if (state === 'waveClear' || now < acceptPressAt) {
+    acceptPressAt = now + RELEASE_GAP_MS;
+    return;
+  }
   if (state === 'battle' && game.gameComponent.fireAt(touch.clientX, touch.clientY)) return;
   if (gesture) return;
   gesture = { id: touch.identifier, x: touch.clientX, y: touch.clientY, lastY: touch.clientY,
@@ -97,8 +126,9 @@ function draw() {
   } else if (game.gameComponent) {
     const run = game.gameComponent;
     run.update();
+    syncRewardSurface();
     game.draw();
-    if (run.playing || run.isDefeatAnimating()) invalidate();
+    if (run.playing || run.waveClear || run.isDefeatAnimating()) invalidate();
     else if (run.gameState === 'gameOver' && (run.reviveState.isShowingAd || run.gameOverMessage.until > Date.now())) {
       refreshTimer = setTimeout(invalidate, 150);
     }

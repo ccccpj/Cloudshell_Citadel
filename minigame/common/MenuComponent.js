@@ -2,7 +2,7 @@ const ranks = require('./RankManager');
 const { COMPLIANCE_CONFIG: compliance } = require('./GameConfig');
 const collection = require('./Collection');
 const art = require('./Art');
-const { bounds, contains, panel, label, wrap, nine, graphic } = require('./GameUI');
+const { bounds, contains, panel, label, wrap, nine, graphic, buttonLabel } = require('./GameUI');
 
 const W = 375, H = 620;
 const cream = '#fff1d2', soft = '#dccea9', ink = '#283b38';
@@ -98,7 +98,7 @@ class MenuComponent {
     if (!nine(this.ctx, 'component.button-' + style, box)) {
       panel(this.ctx, box, style === 'primary' ? '#9a653f' : '#384e49');
     }
-    title(this.ctx, caption, x + width / 2, y + height / 2, 16, action ? cream : '#bdc1ac');
+    buttonLabel(this.ctx, box, caption, { family: 'serif', color: action ? cream : '#bdc1ac' });
     return action ? this.zone(action, x, y, width, height) : null;
   }
 

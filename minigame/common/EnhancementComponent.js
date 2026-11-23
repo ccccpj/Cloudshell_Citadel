@@ -1,5 +1,5 @@
 const EnhancementSystem = require('./EnhancementSystem');
-const { colors, bounds, label, button, contains, wrap, background, graphic, nine } = require('./GameUI');
+const { colors, bounds, label, contains, wrap, background, graphic, nine } = require('./GameUI');
 const tiers = ['', '基础', '高级', '精英', '传说'];
 
 class EnhancementComponent {
@@ -16,7 +16,6 @@ class EnhancementComponent {
       availableCards: this.enhancementSystem.generateRandomEnhancements(3) };
     this.upgradeCallback = upgradeCallback;
     this.completeCallback = completeCallback;
-    this.enhancementCloseButton = null;
     return true;
   }
 
@@ -28,7 +27,6 @@ class EnhancementComponent {
       ? this.upgradeCallback : this.completeCallback;
     this.state.isShowing = false;
     this.state.availableCards = [];
-    this.enhancementCloseButton = null;
     this.upgradeCallback = this.completeCallback = null;
     if (next) next();
   }
@@ -42,8 +40,7 @@ class EnhancementComponent {
     label(ctx, '选择强化', x, top + 23, 27, colors.text, 'left', true);
     label(ctx, '强化点 ' + this.state.remainingSelections, x + width, top + 25, 15, colors.gold, 'right', true);
     const rowTop = top + 65;
-    this.enhancementCloseButton = { x, y: bottom - 48, width, height: 48 };
-    const rowHeight = Math.min(114, (bottom - 66 - rowTop - 20) / 3);
+    const rowHeight = Math.min(114, (bottom - rowTop - 20) / 3);
     this.state.availableCards.forEach((card, i) => {
       const y = rowTop + i * (rowHeight + 10);
       const box = { x, y, width, height: rowHeight };
@@ -63,16 +60,11 @@ class EnhancementComponent {
       const lines = wrap(ctx, card.description, x + width - textX - 14);
       lines.forEach((line, lineIndex) => label(ctx, line, textX, y + rowHeight * 0.62 + lineIndex * 16, 14, '#254f48'));
     });
-    button(ctx, this.enhancementCloseButton, '保留强化点，继续');
     ctx.restore();
   }
 
   handleTouch(x, y, experienceSystem, playerUpdateCallback) {
     if (!this.state.isShowing) return false;
-    if (contains(this.enhancementCloseButton, x, y)) {
-      this.finish(experienceSystem);
-      return true;
-    }
     const card = this.state.availableCards.find(option => contains(option.bounds, x, y));
     if (card && experienceSystem.spendPoints('enhancePoints', 1)) {
       this.enhancementSystem.applyEnhancement(card.type, card.tier, card.value);

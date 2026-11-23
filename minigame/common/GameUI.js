@@ -80,12 +80,24 @@ function label(ctx, value, x, y, size, color = colors.text, align = 'left', bold
   else ctx.fillText(value, x, y);
 }
 
+function buttonLabel(ctx, box, text, { size = 16, family = 'sans-serif', color = colors.text, bold = true, offsetX = 0 } = {}) {
+  ctx.font = (bold ? 'bold ' : '') + size + 'px ' + family;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const { actualBoundingBoxAscent: ascent, actualBoundingBoxDescent: descent } = ctx.measureText(text) || {};
+  // Older WeChat canvases only report the advance width.
+  const inkOffset = ascent + descent > 0 ? (ascent - descent) / 2 : size * 0.35;
+  // The lower bronze bevel is thicker than the top rim in the shared nine-slice.
+  const faceMiddle = box.y + box.height / 2 - 1;
+  ctx.fillText(text, box.x + box.width / 2 + offsetX, faceMiddle + inkOffset, box.width - 16 - 2 * Math.abs(offsetX));
+}
+
 function button(ctx, box, title, primary = false) {
   if (!nine(ctx, primary ? 'component.button-primary' : 'component.button-secondary', box)) {
     panel(ctx, box, primary ? '#795138' : '#354845', 10);
   }
-  label(ctx, title, box.x + box.width / 2, box.y + box.height / 2, 16,
-    colors.text, 'center', true, box.width - 16);
+  buttonLabel(ctx, box, title);
 }
 
 // 微信 Canvas 的中文没有单词空格，按 Unicode 字符测量，也适用于混排数字。
@@ -117,4 +129,4 @@ function background(ctx, viewport) {
   }
 }
 
-module.exports = { colors, bounds, contains, panel, label, button, wrap, background, graphic, nine };
+module.exports = { colors, bounds, contains, panel, label, button, buttonLabel, wrap, background, graphic, nine };

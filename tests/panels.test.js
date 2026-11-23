@@ -36,7 +36,7 @@ test('三选一先按幸运权重抽稀有度，同一手牌不重复且稀有�
   }
 });
 
-test('强化选项一次取值，保留点数后完成回调', () => {
+test('按卡面数值应用强化，每次三选一都必须领取', () => {
   const panel = new Enhancement(canvas, info(320, 568));
   const exp = new Experience();
   exp.addEnhancePoints(2);
@@ -51,10 +51,78 @@ test('强化选项一次取值，保留点数后完成回调', () => {
   panel.handleTouch(...tap(card.bounds), exp);
   assert.equal(panel.enhancementSystem.playerStats.attackPower, startingAttack + startingAttack * 0.071);
   panel.draw(ctx);
-  panel.handleTouch(...tap(panel.enhancementCloseButton), exp);
+  panel.handleTouch(160, 531, exp);
   assert.equal(exp.getExperienceStatus().enhancePoints, 1);
+  assert.equal(complete, 0);
+  assert.equal(panel.isShowing(), true);
+  panel.handleTouch(...tap(panel.state.availableCards[1].bounds), exp);
+  assert.equal(exp.getExperienceStatus().enhancePoints, 0);
   assert.equal(complete, 1);
   assert.equal(panel.isShowing(), false);
+});
+
+test('工坊须先购买一次；查看属性、没有达成前置的觉醒或点击下一关均不算购买', () => {
+  const exp = new Experience();
+  exp.playerExperience.upgradePoints = 8;
+  const system = new System();
+  const panel = new Upgrades(canvas, info(375, 667));
+  let complete = 0;
+  const click = rect => {
+    panel.handleClick(...tap(rect), system, exp);
+    panel.draw(ctx);
+  };
+  panel.showUpgradeScreen(system, exp, () => complete++);
+  panel.draw(ctx);
+  click(panel.continueButton);
+  click(panel.rows.find(row => row.key === 'normal').rect);
+  click(panel.rows.find(row => row.kind === 'awakening').rect);
+  click(panel.detailBack);
+  click(panel.continueButton);
+  assert.equal(complete, 0);
+  assert.equal(exp.getExperienceStatus().upgradePoints, 8);
+  click(panel.rows.find(row => row.key === 'damage').rect);
+  click(panel.continueButton);
+  assert.equal(complete, 1);
+  assert.equal(exp.getExperienceStatus().upgradePoints, 7);
+});
+
+test('工坊无可买项目可继续，唯一可购买项目为觉醒时领取后可继续', () => {
+  const exp = new Experience();
+  const system = new System();
+  const panel = new Upgrades(canvas, info(375, 667));
+  const skill = system.awakeningSkills.normal.pureForce;
+  for (const wave of Object.keys(system.waveUpgrades)) {
+    if (!system.isWaveUnlocked(wave)) system.unlockWave(wave);
+    for (const key of Object.keys(system.waveUpgrades[wave])) {
+      if (key === 'awakening') continue;
+      system.waveUpgrades[wave][key] = system.getMaxUpgradeLevel(key, wave);
+    }
+    for (const awakening of Object.values(system.awakeningSkills[wave])) awakening.unlocked = true;
+  }
+  skill.unlocked = false;
+  let complete = 0;
+  const show = points => {
+    exp.playerExperience.upgradePoints = points;
+    panel.showUpgradeScreen(system, exp, () => complete++);
+    panel.draw(ctx);
+  };
+  const click = rect => { panel.handleClick(...tap(rect), system, exp); panel.draw(ctx); };
+  show(7);
+  click(panel.continueButton);
+  assert.equal(complete, 1);
+  show(8);
+  click(panel.continueButton);
+  assert.equal(complete, 1);
+  click(panel.rows.find(row => row.key === 'normal').rect);
+  click(panel.rows.find(row => row.key === 'pureForce').rect);
+  click(panel.detailBuy);
+  click(panel.continueButton);
+  assert.equal(complete, 2);
+  assert.equal(skill.unlocked, true);
+  show(9);
+  click(panel.continueButton);
+  assert.equal(complete, 3);
+  assert.equal(exp.getExperienceStatus().upgradePoints, 9);
 });
 
 test('无伤生存才触发完美奖励；暂停时关卡时间冻结', () => {
