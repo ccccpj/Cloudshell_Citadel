@@ -276,8 +276,7 @@ class GameConfig {
       
       // 音频文件路径
       AUDIO_PATHS: {
-        // 背景音乐 - 使用轻柔的脚步声作为背景循环
-        BACKGROUND_MUSIC: 'assets/audio/background_music.m4a',
+        BACKGROUND_MUSIC: 'assets/audio/flight-loop.wav',
         
         // 游戏音效
         WAVE_RELEASE: 'assets/audio/error_004.m4a',     // 波发射 - 轻击音效

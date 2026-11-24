@@ -299,9 +299,14 @@ class GameComponent {
     this.enemyComponent.checkWaveCollisions(this.waveComponent.getWaves());
     const damage = this.enemyComponent.checkPlayerCollision(this.player);
     if (damage > 0) {
-      this.player.health = Math.max(0, this.player.health - damage);
+      const before = this.player.health;
+      this.player.health = Math.max(0, before - damage);
+      const recent = this.impact && this.elapsed - this.impact.at < 220;
+      this.impact = {
+        at: this.elapsed, before: recent ? this.impact.before : before,
+        lost: (recent ? this.impact.lost : 0) + before - this.player.health
+      };
       this.setFormAction('hit');
-      this.coreEffect('core-hit');
       this.levelManager.markPlayerHit();
       if (this.player.health <= 0) {
         this.handlePlayerDeath();
@@ -345,6 +350,7 @@ class GameComponent {
     this.enemyComponent.clearEnemies();
     this.waveComponent.clearAllWaves();
     this.player.health = this.player.maxHealth;
+    this.impact = null;
     this.setFormAction('revive');
     this.coreEffect('revive');
     this.player.lastHealthRegenTime = this.elapsed;

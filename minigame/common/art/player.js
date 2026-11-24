@@ -40,29 +40,68 @@
   const bits = {wind: 1, fire: 2, ice: 4, electric: 8};
   const waveEdge = {normal: '#d4f6e5', wind: '#a9eed9', fire: '#ffb47d', ice: '#c4e9ff', electric: '#ffe5a0'};
 
-  // The centerline follows the live swept ring; flames/sparks are decorative.
-  // When the caller already applied wave.alpha, pass opacity=1 to avoid double fading.
+  // Draw the collision band at its actual radius. The small launch sprite blends
+  // into constant-size marks before it would have to scale beyond its source.
   function drawWave(ctx, image, clip, elapsedMs, x, y, radius, width, opacity = 1) {
-    if (!image || radius <= 0 || width <= 0 || opacity <= 0) return;
+    if (radius <= 0 || width <= 0 || opacity <= 0) return;
+    const element = clip.element, turn = Math.PI * 2;
     ctx.save();
-    ctx.globalAlpha *= Math.min(1, opacity);
+    ctx.translate(x, y);
+    ctx.globalAlpha *= Math.sqrt(Math.min(1, opacity));
+    const visibleAlpha = ctx.globalAlpha;
+    ctx.strokeStyle = waveEdge[element];
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius, 0, turn);
     ctx.lineWidth = width;
-    ctx.strokeStyle = waveEdge[clip.element];
     ctx.stroke();
-    if (clip.element === 'normal') {
-      const inner = Math.max(0, radius - width / 2);
-      ctx.beginPath();
-      ctx.arc(x, y, radius + width / 2, 0, Math.PI * 2);
-      if (inner > 0) {
-        ctx.moveTo(x + inner, y);
-        ctx.arc(x, y, inner, 0, Math.PI * 2, true);
+
+    const detail = Math.min(1, Math.max(0, (radius / clip.sourceRadius - .55) / .45));
+    if (image && detail < 1) {
+      ctx.save();
+      if (element === 'normal') {
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + width / 2, 0, turn);
+        const inner = Math.max(0, radius - width / 2);
+        ctx.moveTo(inner, 0);
+        ctx.arc(0, 0, inner, 0, turn, true);
+        ctx.clip();
       }
-      ctx.clip();
+      const size = radius * clip.frameWidth / clip.sourceRadius;
+      drawClip(ctx, image, clip, elapsedMs, 0, 0, size, size, 0, 1 - detail);
+      ctx.restore();
     }
-    const size = radius * clip.frameWidth / clip.sourceRadius;
-    drawClip(ctx, image, clip, elapsedMs, x, y, size);
+    if (detail > 0) {
+      const rim = radius + width / 2;
+      ctx.globalAlpha = visibleAlpha * detail;
+      ctx.lineWidth = 1.25;
+      ctx.strokeStyle = element === 'normal' ? '#ffffff' : waveEdge[element];
+      ctx.beginPath();
+      if (element === 'normal') {
+        ctx.arc(0, 0, rim, 0, turn);
+      } else {
+        const count = Math.min(32, Math.max(8, Math.round(radius / 8)));
+        const phase = elapsedMs * .0003;
+        for (let i = 0; i < count; i++) {
+          const angle = i * turn / count + phase;
+          ctx.save();
+          ctx.rotate(angle);
+          if (element === 'wind') {
+            ctx.moveTo(rim + 3, 0);
+            ctx.arc(0, 0, rim + 3, 0, 12 / rim);
+          } else if (element === 'electric') {
+            ctx.moveTo(rim, -6); ctx.lineTo(rim + 3, -1);
+            ctx.lineTo(rim - 1, 1); ctx.lineTo(rim + 2, 6);
+          } else {
+            // Ice crystals point outwards. Flame tips lean along the moving front.
+            ctx.moveTo(rim, -3);
+            ctx.lineTo(rim + (element === 'fire' ? 6 : 4), element === 'fire' ? 3 : 0);
+            ctx.lineTo(rim, 3);
+          }
+          ctx.restore();
+        }
+      }
+      ctx.stroke();
+    }
     ctx.restore();
   }
 

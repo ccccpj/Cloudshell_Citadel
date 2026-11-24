@@ -20,7 +20,7 @@ function gameBundle() {
   const loader = fs.readFileSync(path.join(browser, 'loader.js'), 'utf8');
   return '(' + loader + ')({\n' + factories.join(',\n') + '\n});';
 }
-const mime = {'.jpg':'image/jpeg','.png':'image/png','.m4a':'audio/mp4','.js':'application/javascript','.html':'text/html; charset=utf-8'};
+const mime = {'.jpg':'image/jpeg','.png':'image/png','.m4a':'audio/mp4','.wav':'audio/wav','.js':'application/javascript','.html':'text/html; charset=utf-8'};
 let rankHandler;
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major > 22 || (major === 22 && minor >= 13)) {
@@ -43,7 +43,7 @@ http.createServer((req, res) => {
   const pages = {'/':'index.html','/platform.js':'platform.js','/rank.js':'rank.js'};
   let file;
   if (Object.hasOwn(pages, url.pathname)) file = path.join(browser, pages[url.pathname]);
-  else if (/^\/[\w/-]+\.(png|jpg|m4a)$/.test(url.pathname)) file = path.join(root, url.pathname);
+  else if (/^\/[\w/-]+\.(png|jpg|m4a|wav)$/.test(url.pathname)) file = path.join(root, url.pathname);
   if (!file || !fs.existsSync(file)) {
     res.writeHead(404);return res.end();
   }

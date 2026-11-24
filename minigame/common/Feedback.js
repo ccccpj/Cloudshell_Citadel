@@ -24,7 +24,7 @@ function syncMusic() {
     return;
   }
   if (!music) {
-    music = wx.createInnerAudioContext();
+    music = wx.createInnerAudioContext({ useWebAudioImplement: true });
     music.src = audio.AUDIO_PATHS.BACKGROUND_MUSIC;
     music.loop = true;
     music.volume = audio.MUSIC_VOLUME * audio.MASTER_VOLUME;
