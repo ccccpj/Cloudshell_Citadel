@@ -2,6 +2,8 @@ const EnhancementSystem = require('./EnhancementSystem');
 const { colors, bounds, label, contains, wrap, background, graphic, panel } = require('./GameUI');
 const drawGlint = require('./CardGlint');
 const inks = ['', '#402b18', '#263749', '#52300d', '#203955'];
+// 圆槽内圈的中心，坐标对应 600 × 200 卡面。
+const sockets = [null, [80, 94], [84, 100], [82, 102], [82, 102]];
 
 class EnhancementComponent {
   constructor(canvas, systemInfo) {
@@ -54,13 +56,15 @@ class EnhancementComponent {
       const ready = graphic(ctx, 'card.' + card.tier, 0, 0, 600, 200);
       if (!ready) panel(ctx, { x: 4, y: 30, width: 592, height: 145 }, '#e7d7b6', 15);
       else if (card.tier >= 3) drawGlint(ctx, card.tier, phase);
-      graphic(ctx, 'enhancement.' + card.type, 53, 78, 56);
+      const [socketX, centerY] = sockets[card.tier];
+      graphic(ctx, 'enhancement.' + card.type, socketX - 28, centerY - 28, 56);
       const ink = inks[card.tier];
       ctx.font = '22px sans-serif';
       const lines = wrap(ctx, card.description, 368);
-      label(ctx, card.name, 183, lines.length > 1 ? 78 : 88, 32, ink, 'left', true, 368);
+      const titleY = centerY - 17 - (lines.length - 1) * 23 / 2;
+      label(ctx, card.name, 183, titleY, 32, ink, 'left', true, 368);
       lines.forEach((line, index) => label(ctx, line, 184,
-        lines.length > 1 ? 109 + index * 23 : 130, 22, ink, 'left', false, 368));
+        titleY + 39 + index * 23, 22, ink, 'left', false, 368));
       ctx.restore();
     });
     ctx.restore();
