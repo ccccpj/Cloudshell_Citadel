@@ -1,6 +1,7 @@
 // Only local device APIs are adapted. WeChat ads, friends and cloud services require the native host.
 (() => {
   const canvas = document.querySelector('canvas');
+  let screenCreated = false;
   const hooks = {};
   const store = 'cloudshell:';
   function info() {
@@ -98,7 +99,12 @@
     });
   }
   window.wx = {
-    createCanvas:()=>canvas,createImage:()=>new Image(),getWindowInfo:info,getSystemInfoSync:info,
+    createCanvas() {
+      if (screenCreated) return document.createElement('canvas');
+      screenCreated = true;
+      return canvas;
+    },
+    createImage:()=>new Image(),getWindowInfo:info,getSystemInfoSync:info,
     loadSubpackage:options=>options.success(),createInnerAudioContext:options => options?.useWebAudioImplement ? musicPlayer() : audio(),
     getStorageSync:key=>JSON.parse(localStorage.getItem(store+key)),
     setStorageSync:(key,value)=>localStorage.setItem(store+key,JSON.stringify(value)),

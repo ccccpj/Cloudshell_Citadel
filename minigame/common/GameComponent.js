@@ -1,4 +1,5 @@
 const feedback = require('./Feedback');
+const { contains } = require('./GameUI');
 const BattleView = require('./BattleView');
 const Art = require('./Art');
 const Collection = require('./Collection');
@@ -300,6 +301,11 @@ class GameComponent {
     }
     if (this.upgradeComponent.isVisible()) {
       this.upgradeComponent.handleClick(x, y, this.upgradeSystem, this.experienceSystem);
+      return;
+    }
+    if (this.playing && contains(this.view.autoSwitch, x, y)) {
+      feedback.toggle('autoWave');
+      if (!feedback.preferences().autoWave) this.queuedCast = null;
       return;
     }
     const paused = this.levelManager.isPaused;
