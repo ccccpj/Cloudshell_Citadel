@@ -33,7 +33,10 @@ function recordFlight(run) {
   utils.setStorage(localFlightsKey, flights.slice(0, 6));
 }
 
+function hasTotal() { return Boolean(wx.webLeaderboard || (settings.cloudEnvId && wx.cloud)); }
+
 function cloud(action, payload = {}) {
+  if (wx.webLeaderboard) return wx.webLeaderboard.request(action, payload);
   if (!cloudReady) {
     wx.cloud.init({ env: settings.cloudEnvId });
     cloudReady = true;
@@ -55,7 +58,7 @@ function queue() {
 // A failed upload never prevents a separate list request. Replacing a snapshot while it is in
 // flight retains the newer one, including subsequent kills after a successful ad revive.
 async function upload() {
-  if (uploading || !settings.cloudEnvId || !wx.cloud) return;
+  if (uploading || !hasTotal()) return;
   uploading = true;
   const failed = new Set();
   let changed = false;
@@ -81,7 +84,7 @@ async function upload() {
 }
 
 function startRun() {
-  if (!settings.cloudEnvId || !wx.cloud) return null;
+  if (!hasTotal()) return null;
   const run = {
     id: '', decks: null, eligible: true, level: 0, nextIndex: 0, kills: [], count: 0, queued: 0,
     deadline: Date.now() + day,
@@ -133,7 +136,7 @@ function friendSlot() {
 }
 
 function record(best, run) {
-  if (best > 0) {
+  if (best > 0 && !wx.webLeaderboard) {
     try {
       wx.getOpenDataContext().postMessage({ type: 'record', best, slot: friendSlot() });
     } catch (error) { console.warn('好友成绩暂未同步', error); }
@@ -155,8 +158,9 @@ function record(best, run) {
   else run.ready.then(persist);
 }
 
-const tabs = ['本机', '好友', '总榜'];
-function open() { select(0); }
+const wechatTabs = [0, 1, 2], webTabs = [0, 2];
+function visibleTabs() { return wx.webLeaderboard ? webTabs : wechatTabs; }
+function open() { select(wx.webLeaderboard ? 2 : 0); }
 
 function select(tab) {
   const view = { tab, best: Number(utils.getStorage('waveGameHighScore')) || 0, since: Date.now() };
@@ -177,7 +181,7 @@ function select(tab) {
     });
     return;
   }
-  if (!settings.cloudEnvId || !wx.cloud) { view.message = '总榜尚未开放'; return; }
+  if (!hasTotal()) { view.message = '总榜尚未开放'; return; }
   view.message = '正在读取总榜…';
   upload();
   readTotal(view);
@@ -190,6 +194,7 @@ function readTotal(view) {
     if (view.request !== request) return;
     if (!result || !Array.isArray(result.rows)) throw new Error('榜单数据无效');
     view.rows = result.rows;
+    view.nickname = result.nickname;
     view.error = null;
     view.message = '暂无上榜成绩';
   }).catch(() => { if (view.request === request) view.error = '总榜读取失败，请重试'; });
@@ -217,16 +222,18 @@ function draw(ctx, w, h, info = {}) {
   label(ctx, '航行排行榜', x + 43, top - 9, 26, colors.text, 'left', true);
   ctx.font = 'bold 15px sans-serif';
   ctx.textAlign = 'center';
-  for (let i = 0; i < tabs.length; i++) {
-    const selected = i === view.tab, left = x + i * width / 3;
-    const tab = { x: left, y: tabY, width: width / 3 - 2, height: 46 };
+  const tabs = visibleTabs();
+  const tabWidth = width / tabs.length;
+  for (const [position, i] of tabs.entries()) {
+    const selected = i === view.tab, left = x + position * tabWidth;
+    const tab = { x: left, y: tabY, width: tabWidth - 2, height: 46 };
     if (!nine(ctx, selected ? 'component.tab-active' : 'component.tab-idle', tab)) {
       ctx.fillStyle = selected ? '#8b6036' : '#29474b';
       ctx.fillRect(left, tabY, tab.width, 46);
     }
     graphic(ctx, ['action.localRank', 'action.friendRank', 'action.worldRank'][i],
       left + tab.width / 2 - 34, tabY + 10, 24);
-    buttonLabel(ctx, tab, tabs[i], { size: 15, bold: selected, offsetX: 11 });
+    buttonLabel(ctx, tab, ['本机', '好友', wx.webLeaderboard ? '网页榜' : '总榜'][i], { size: 15, bold: selected, offsetX: 11 });
   }
   if (view.tab === 0) {
     const podium = { x, y: bodyY, width, height: Math.min(85, bodyH) };
@@ -237,7 +244,7 @@ function draw(ctx, w, h, info = {}) {
     label(ctx, '本机最高分', x + 63, bodyY + podium.height / 2, 16, colors.text);
     label(ctx, String(view.best), x + width - 16, bodyY + podium.height / 2, 30,
       colors.gold, 'right', true, width - 165);
-    const syncNotice = bodyH > 192 && settings.cloudEnvId && (queue().length || (latestRun && !latestRun.eligible));
+    const syncNotice = bodyH > 192 && hasTotal() && (queue().length || (latestRun && !latestRun.eligible));
     const listY = bodyY + podium.height + 8;
     const rowH = Math.min(49, (bodyH - podium.height - 8 - (syncNotice ? 24 : 0)) / 6);
     if (view.flights.length && rowH > 14) {
@@ -253,7 +260,7 @@ function draw(ctx, w, h, info = {}) {
       label(ctx, '尚无航程记录', w / 2, listY + 75, 15, colors.muted, 'center');
     }
     if (syncNotice) {
-      const message = queue().length ? '总榜成绩待同步，可在总榜刷新' : '本局未连接总榜，保留本机与好友成绩';
+      const message = queue().length ? '总榜成绩待同步，可在总榜刷新' : '本局未连接总榜，成绩已保存在本机';
       label(ctx, message, w / 2, bodyY + bodyH - 10, 13, colors.muted, 'center', false, width - 12);
     }
   } else if (view.rows && view.rows.length) {
@@ -266,7 +273,9 @@ function draw(ctx, w, h, info = {}) {
       ctx.textAlign = 'left';
       ctx.fillStyle = i === 0 ? '#f7c986' : '#c8d9da';
       ctx.fillText(String(i + 1), x + 10, y + rowH * 0.5);
-      ctx.fillText(row.mine ? '我' : '玩家 ' + row.player, x + 38, y + rowH * 0.5, width * 0.47);
+      const name = wx.webLeaderboard ? (row.name || '飞行员 ' + row.player) + (row.mine ? '（我）' : '') :
+        (row.mine ? '我' : '玩家 ' + row.player);
+      ctx.fillText(name, x + 38, y + rowH * 0.5, width * 0.47);
       ctx.textAlign = 'right';
       ctx.fillText(row.score + ' 分', x + width - 10, y + rowH * 0.5, width * 0.32);
     });
@@ -289,13 +298,19 @@ function draw(ctx, w, h, info = {}) {
       } catch (error) { view.error = '好友榜暂不可用，请用微信真机重试'; }
     }
   }
-  const two = view.tab === 1 || (view.tab === 2 && settings.cloudEnvId && wx.cloud);
-  const buttonW = two ? (width - 8) / 2 : width;
-  button(ctx, { x, y: bottom, width: buttonW, height: 46 }, '返回');
-  if (two) button(ctx, { x: x + buttonW + 8, y: bottom, width: buttonW, height: 46 }, view.denied ? '去设置' : '刷新');
+  const actions = footerActions(view);
+  const buttonW = (width - 8 * (actions.length - 1)) / actions.length;
+  actions.forEach((action, i) => button(ctx,
+    { x: x + i * (buttonW + 8), y: bottom, width: buttonW, height: 46 }, action));
   ctx.restore();
   // 好友共享画布及已启用的云同步可能在本次绘制后更新。
-  return view.tab === 1 || Boolean(settings.cloudEnvId && wx.cloud);
+  return view.tab === 1 || hasTotal();
+}
+
+function footerActions(view) {
+  if (view.tab === 2 && wx.webLeaderboard) return ['返回', '改昵称', '刷新'];
+  if (view.tab === 1 || (view.tab === 2 && hasTotal())) return ['返回', view.denied ? '去设置' : '刷新'];
+  return ['返回'];
 }
 
 function handleTouch(x, y, w, h, info) {
@@ -303,17 +318,24 @@ function handleTouch(x, y, w, h, info) {
   const b = layout(w, h, info);
   if (x < b.x || x > b.x + b.width) return true;
   if (y >= b.tabY && y <= b.tabY + 46) {
-    const tab = Math.min(2, Math.floor((x - b.x) / (b.width / 3)));
+    const tabs = visibleTabs();
+    const tab = tabs[Math.min(tabs.length - 1, Math.floor((x - b.x) / (b.width / tabs.length)))];
     if (tab !== panel.tab) select(tab);
   } else if (y >= b.bottom && y <= b.bottom + 46) {
-    const two = panel.tab === 1 || (panel.tab === 2 && settings.cloudEnvId && wx.cloud);
-    if (!two || x <= b.x + (b.width - 8) / 2) panel = null;
-    else if (x >= b.x + (b.width + 8) / 2) {
-      if (panel.denied) {
-        const previous = panel;
-        wx.openSetting({ success: () => { if (panel === previous) select(1); } });
-      } else select(panel.tab);
-    }
+    const actions = footerActions(panel);
+    const step = (b.width + 8) / actions.length;
+    const i = Math.floor((x - b.x) / step);
+    if (x - b.x - i * step > step - 8) return true;
+    if (actions[i] === '返回') panel = null;
+    else if (actions[i] === '改昵称') {
+      const previous = panel;
+      wx.webLeaderboard.editNickname(panel.nickname || '').then(saved => {
+        if (saved && panel === previous) select(2);
+      });
+    } else if (panel.denied) {
+      const previous = panel;
+      wx.openSetting({ success: () => { if (panel === previous) select(1); } });
+    } else select(panel.tab);
   }
   return true;
 }
