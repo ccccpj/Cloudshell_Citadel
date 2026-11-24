@@ -26,6 +26,11 @@ class WaveComponent {
     this.upgradeSystem = upgradeSystem;
   }
 
+  reach(type) {
+    const multiplier = this.upgradeSystem ? this.upgradeSystem.getWaveRangeMultiplier(type) : 1;
+    return this.field.width * GameConfig.WAVE_CONFIG.MAX_RADIUS_RATIO * multiplier;
+  }
+
   // 创建新的光波
   createWave(type, playerX, playerY, bonus = false) {
     // 检查波是否已解锁（普通波始终可用）
@@ -37,15 +42,11 @@ class WaveComponent {
     const waveConfig = GameConfig.WAVE_CONFIG;
     
     // 获取强化后的属性
-    let maxRadius = this.field.width * waveConfig.MAX_RADIUS_RATIO;
+    const maxRadius = this.reach(type);
     let maxWaves = waveConfig.MAX_CONCURRENT_WAVES;
     let waveWidth = waveConfig.LINE_WIDTH; // 波的宽度
     
-    // 应用升级系统的范围强化（百分比倍数）
     if (this.upgradeSystem) {
-      const rangeMultiplier = this.upgradeSystem.getWaveRangeMultiplier(type);
-      maxRadius *= rangeMultiplier;
-      
       // 应用升级系统的波宽度强化（直接像素值增加）
       const widthBonus = this.upgradeSystem.getWaveWidthBonus(type);
       waveWidth += widthBonus;
@@ -64,6 +65,17 @@ class WaveComponent {
     if (this.upgradeSystem) {
       const speedMultiplier = this.upgradeSystem.getWaveSpeedMultiplier(type);
       waveSpeed *= speedMultiplier;
+    }
+
+    if (!bonus) {
+      const active = this.waves.filter(wave => !wave.bonus && wave.type === type);
+      if (active.length >= maxWaves) {
+        const replace = this.upgradeSystem?.hasZeroCooldown(type)
+          ? active.find(wave => wave.radius >= wave.maxRadius)
+          : active[0];
+        if (!replace) return false;
+        this.waves.splice(this.waves.indexOf(replace), 1);
+      }
     }
 
     const wave = {
@@ -104,11 +116,7 @@ class WaveComponent {
       else this.vortices.push({ x: playerX, y: playerY, radius: 76, endTime: this.elapsed + 3000, nextTick: this.elapsed });
     }
     this.waves.push(wave);
-    
-    // 限制同时存在的波数量（应用强化后的数量）
-    if (!bonus && this.waves.filter(active => !active.bonus && active.type === type).length > maxWaves) {
-      this.waves.splice(this.waves.findIndex(active => !active.bonus && active.type === type), 1);
-    }
+    return true;
   }
 
   // 更新光波状态

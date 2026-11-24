@@ -16,6 +16,7 @@ const ranks = require('./RankManager');
 const video = require('./RewardedVideo');
 
 const STEP = 1 / 60;
+const AUTO_CHECK_MS = 100;
 const WAVE_CLEAR_MS = 900;
 const ELEMENTS = [
   ['wind', '风波', '#bedfcf'], ['fire', '火波', '#ff9c83'],
@@ -32,6 +33,9 @@ class GameComponent {
     this.gameState = 'playing';
     this.elapsed = 0;
     this.lastElementButton = null;
+    this.queuedCast = null;
+    this.autoCursor = 0;
+    this.nextAutoCheck = 0;
     this.lastUpdateTime = Date.now();
     this.accumulator = 0;
     this.currentLevelKills = 0;
@@ -171,8 +175,7 @@ class GameComponent {
   }
 
   waveCooldown(type) {
-    if ((type === 'normal' && this.upgradeSystem.hasAwakening(type, 'instantCast')) ||
-        (type === 'wind' && this.upgradeSystem.hasAwakening(type, 'endlessWind'))) return 0;
+    if (this.upgradeSystem.hasZeroCooldown(type)) return 0;
     const base = GameConfig.WAVE_CONFIG.TYPES[type].cooldown;
     return Math.max(50, base * this.upgradeSystem.getWaveCooldownMultiplier(type) *
       this.enhancementComponent.enhancementSystem.calculateCooldownReduction());
@@ -203,14 +206,27 @@ class GameComponent {
       this.hintUntil = this.elapsed + 1200;
       return true;
     }
-    if (this.waveRecovery(button).remaining > 0.01) return true;
+    const recovery = this.waveRecovery(button);
+    const ready = recovery.remaining <= 0.01;
+    const auto = feedback.preferences().autoWave;
+    if (button.type !== 'normal' || this.queuedCast === button) this.queuedCast = null;
+    if (ready && this.castWave(button, true)) return true;
+    // A queued tap reserves the next switch window, never a future skill cooldown.
+    if (auto && (ready || (recovery.switching &&
+        this.elapsed - button.lastUseTime >= this.waveCooldown(button.type)))) {
+      this.queuedCast = button;
+    }
+    return true;
+  }
+
+  castWave(button, manual) {
+    if (!this.waveComponent.createWave(button.type, this.player.x, this.player.y)) return false;
     button.lastUseTime = this.elapsed;
     if (button.type !== 'normal') this.lastElementButton = button;
-    this.waveComponent.createWave(button.type, this.player.x, this.player.y);
     this.setFormAction('cast');
     this.coreEffect('cast-' + button.type);
     this.sound('WAVE_RELEASE');
-    feedback.vibrate('light');
+    if (manual) feedback.vibrate('light');
     if (button.type === 'fire' && this.upgradeSystem.hasAwakening('fire', 'phoenixRebirth')) {
       this.phoenixReadyAt = this.elapsed + this.waveCooldown(button.type);
     }
@@ -218,6 +234,40 @@ class GameComponent {
       this.createRadialWaves('electric', 3, 36);
     }
     return true;
+  }
+
+  updateAutoWaves() {
+    if (!feedback.preferences().autoWave) {
+      this.queuedCast = null;
+      return;
+    }
+    const queued = this.queuedCast;
+    if (queued && this.waveRecovery(queued).remaining <= 0.01 && this.castWave(queued, true)) {
+      this.queuedCast = null;
+      return;
+    }
+    if (this.elapsed < this.nextAutoCheck) return;
+    this.nextAutoCheck = this.elapsed + AUTO_CHECK_MS;
+    const enemies = this.enemyComponent.enemies;
+    if (!enemies.length) return;
+    const buttons = this.waveButtons;
+    for (let offset = 0; offset < buttons.length; offset++) {
+      const index = (this.autoCursor + offset) % buttons.length;
+      const button = buttons[index], type = button.type;
+      if (queued && (queued === button || (queued.type !== 'normal' && type !== 'normal'))) continue;
+      if (!this.upgradeSystem.isWaveUnlocked(type) || this.waveRecovery(button).remaining > 0.01) continue;
+      // Let the current switch window expire even if wind itself has zero cooldown.
+      if (button === this.lastElementButton && this.elapsed - button.lastUseTime < this.elementSwitchMs) continue;
+      const reach = this.waveComponent.reach(type);
+      const attack = this.enemyComponent.attackPower();
+      const target = enemies.some(enemy => enemy.health > 0 &&
+        Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y) <= reach + enemy.radius &&
+        GameConfig.calculateDamage(attack, type, enemy, false, null, this.upgradeSystem) > 0);
+      if (target && this.castWave(button, false)) {
+        this.autoCursor = (index + 1) % buttons.length;
+        return;
+      }
+    }
   }
 
   createRadialWaves(type, count, distance) {
@@ -258,6 +308,7 @@ class GameComponent {
   }
 
   resetFrameClock() {
+    this.queuedCast = null;
     this.lastUpdateTime = Date.now();
     this.accumulator = 0;
   }
@@ -294,6 +345,7 @@ class GameComponent {
       this.coreEffect('phoenix');
       this.createRadialWaves('fire', 8, 80);
     }
+    this.updateAutoWaves();
     this.waveComponent.update(seconds);
     this.enemyComponent.update(seconds);
     this.enemyComponent.checkWaveCollisions(this.waveComponent.getWaves());

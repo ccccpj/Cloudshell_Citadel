@@ -98,13 +98,15 @@ test('元素切换保护单系冷却，普通波和被拒绝的点击不延长�
   press(wind);
   game.elapsed = 900;
   press(wind);
-  assert.equal(wind.lastUseTime, 900);
+  assert.equal(wind.lastUseTime, 850);
+  assert.equal(game.waveComponent.waves.filter(wave => wave.type === 'wind').length, 1);
   assert.equal(game.waveRecovery(wind).remaining, 0);
-  assert.deepEqual(game.waveRecovery(ice), { remaining: 850, duration: 850, switching: true });
+  assert.deepEqual(game.waveRecovery(ice), { remaining: 800, duration: 850, switching: true });
   game.enhancementComponent.enhancementSystem.playerStats.cooldownAcceleration = 100;
-  assert.equal(game.waveRecovery(ice).remaining, 425);
+  assert.equal(game.waveRecovery(ice).remaining, 375);
   game.enhancementComponent.enhancementSystem.playerStats.cooldownAcceleration = 9900;
-  assert.equal(game.waveRecovery(ice).remaining, 8.5);
+  assert.equal(game.elementSwitchMs, 8.5);
+  assert.equal(game.waveRecovery(ice).remaining, 0);
 });
 
 test('满两点每秒的回复在一秒战斗内补两点，暂停保留半个回复周期', t => {
@@ -251,4 +253,59 @@ test('实战首遇与换装按事件入册，角色帧和波前跟随逻辑坐�
   assert.equal(game.elapsed, elapsed);
   game.draw();
   assert.ok(game.view.actions.some(action => action.id === 'restart'));
+});
+
+test('自动轮转已解锁且能命中的波，手点的最后一个元素优先接受同一切换冷却', t => {
+  const { game } = setup(t);
+  const feedback = require('../minigame/common/Feedback');
+  t.mock.method(feedback, 'preferences', () => ({ autoWave: true }));
+  const buttons = Object.fromEntries(game.waveButtons.map(button => [button.type, button]));
+  for (const type of ['wind','fire','ice','electric']) game.upgradeSystem.unlockWave(type);
+  const enemy = { x: game.player.x + 500, y: game.player.y, health: 50, radius: 10,
+    resistances: [], immunities: ['wind','fire','ice','normal'] };
+  game.enemyComponent.enemies.push(enemy);
+  function advance(time) { game.elapsed = time; game.updateAutoWaves(); }
+  advance(0);
+  assert.equal(game.waveComponent.waves.length, 0);
+  enemy.x = game.player.x + 200;
+  advance(100);
+  assert.equal(buttons.electric.lastUseTime, 100);
+  enemy.immunities = [];
+  for (const button of [buttons.fire, buttons.ice]) game.fireAt(button.x, button.y);
+  assert.equal(game.queuedCast, buttons.ice);
+  advance(200);
+  assert.equal(buttons.normal.lastUseTime, 200);
+  advance(949);
+  assert.equal(buttons.ice.lastUseTime, -Infinity);
+  advance(950);
+  assert.equal(buttons.ice.lastUseTime, 950);
+  assert.equal(game.queuedCast, null);
+  game.fireAt(buttons.ice.x, buttons.ice.y);
+  assert.equal(game.queuedCast, null);
+  advance(1800);
+  advance(2650);
+  assert.deepEqual(new Set(game.waveComponent.waves.map(w => w.type)), new Set(Object.keys(buttons)));
+});
+
+test('零冷却满额时保护在途波，手点预约在空位出现后先于自动释放', t => {
+  const { game } = setup(t);
+  t.mock.method(require('../minigame/common/Feedback'), 'preferences', () => ({ autoWave: true }));
+  const normal = game.waveButtons[2];
+  game.upgradeSystem.waveUpgrades.normal.awakening.push('instantCast');
+  game.fireAt(normal.x, normal.y);
+  const first = game.waveComponent.waves[0];
+  game.waveComponent.update(.5);
+  game.elapsed = 500;
+  game.fireAt(normal.x, normal.y);
+  game.updateAutoWaves();
+  assert.equal(game.queuedCast, normal);
+  assert.equal(game.waveComponent.waves[0], first);
+  assert.equal(normal.lastUseTime, 0);
+  game.waveComponent.update(1);
+  game.elapsed = 1500;
+  game.updateAutoWaves();
+  assert.equal(game.queuedCast, null);
+  assert.equal(normal.lastUseTime, 1500);
+  assert.equal(game.waveComponent.waves.length, 1);
+  assert.notEqual(game.waveComponent.waves[0], first);
 });

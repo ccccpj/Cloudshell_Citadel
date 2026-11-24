@@ -4,7 +4,7 @@ class GameConfig {
   static get WAVE_CONFIG() {
     return {
       // 通用波属性
-      ELEMENT_SWITCH_MS: 850,    // 两次不同元素手动出波之间的间隔，普通波不占用
+      ELEMENT_SWITCH_MS: 850,    // 两次不同元素出波之间的间隔，普通波不占用
       LINE_WIDTH: 2,              // 波的线条宽度
       SPEED: 180,                 // 波的扩散速度（逻辑像素/秒）
       MAX_RADIUS_RATIO: 0.6,      // 基础射程占逻辑战场宽度的比例
