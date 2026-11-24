@@ -61,7 +61,7 @@ class UpgradeComponent {
         const unlocked = system.isWaveUnlocked(key);
         const cost = system.getUnlockCost(key);
         return { kind: 'element', key, title, ink, caption, unlocked, cost,
-          action: unlocked ? '升级  ›' : '解锁 ' + cost + ' 点', enabled: unlocked || points >= cost };
+          action: unlocked ? '升级  ›' : (points < cost ? '需 ' : '解锁 ') + cost + ' 点', enabled: unlocked || points >= cost };
       });
     }
     const upgrades = ['damage', 'range', 'cooldown', ...elements[wave][3]].map(key => {
@@ -71,13 +71,14 @@ class UpgradeComponent {
       const required = damageRequired(key);
       const locked = system.getWaveUpgradeLevel(wave, 'damage') < required;
       const caption = '等级 ' + level + ' / ' + max;
-      const action = level >= max ? '已满级' : locked ? '需伤害 ' + required + ' 级' : '升级 ' + cost + ' 点';
+      const action = level >= max ? '已满级' : locked ? '需伤害 ' + required + ' 级' : (points < cost ? '需 ' : '升级 ') + cost + ' 点';
       return { kind: 'upgrade', key, title: system.getUpgradeTypeName(key), ink: elements[wave][1], caption,
         cost, enabled: !locked && level < max && points >= cost, action };
     });
     const awakenings = Object.entries(system.awakeningSkills[wave]).map(([key, skill]) => ({
       kind: 'awakening', key, title: skill.name, ink: colors.gold, caption: '觉醒技能', skill,
-      action: skill.unlocked ? '已觉醒' : '查看条件  ›', enabled: true
+      action: skill.unlocked ? '已觉醒' : '查看条件  ›',
+      enabled: system.canUnlockAwakening(wave, key) && points >= system.upgradeConfig.awakeningCost
     }));
     return [...upgrades, ...awakenings];
   }
@@ -119,16 +120,18 @@ class UpgradeComponent {
       const left = x + (i % columns) * (cellW + gap);
       const rect = { x: left, y, width: cellW, height };
       this.rows.push({ ...row, rect });
-      const skin = row.kind === 'awakening' ? 'row-selected' : 'row';
+      const titleInk = row.enabled ? colors.text : '#c1c8c5';
+      const skin = row.enabled && row.kind === 'awakening' ? 'row-selected' : 'row';
       if (!nine(ctx, 'component.' + skin, rect)) panel(ctx, rect, colors.surface, 8);
+      if (!row.enabled) panel(ctx, rect, 'rgba(25,34,38,.68)', 8);
       if (!wave) {
         const size = Math.min(62, height - 22);
         const textX = left + size + 24;
         ctx.save();
-        if (!row.unlocked) ctx.globalAlpha *= 0.67;
+        if (!row.enabled) ctx.globalAlpha = 0.4;
         graphic(ctx, 'skill.' + row.key, left + 13, y + (height - size) / 2, size);
         ctx.restore();
-        label(ctx, row.title, textX, y + height / 2 - 11, 19, colors.text, 'left', true);
+        label(ctx, row.title, textX, y + height / 2 - 11, 19, titleInk, 'left', true);
         label(ctx, row.caption, textX, y + height / 2 + 11, 13, colors.muted);
         label(ctx, row.action, left + cellW - 17, y + height / 2 - 1, 14,
           row.enabled ? colors.gold : colors.muted, 'right');
@@ -139,8 +142,14 @@ class UpgradeComponent {
       const textX = left + 13 + iconSize + 6;
       const textWidth = left + cellW - 16 - textX;
       const blockTop = y + (height - 84) / 2;
+      ctx.save();
+      if (!row.enabled) ctx.globalAlpha = 0.4;
       graphic(ctx, artId, left + 13, blockTop + 14, iconSize);
-      label(ctx, row.title, textX, blockTop + 21, 15, colors.text, 'left', true, textWidth);
+      ctx.restore();
+      if (!row.enabled && row.kind === 'upgrade' && row.action !== '已满级') {
+        graphic(ctx, 'action.lock', left + 16, blockTop + 54, 16);
+      }
+      label(ctx, row.title, textX, blockTop + 21, 15, titleInk, 'left', true, textWidth);
       label(ctx, row.caption, textX, blockTop + 40, 12, colors.muted, 'left', false, textWidth);
       label(ctx, row.action, left + cellW - 17, blockTop + 62, 13,
         row.enabled ? colors.gold : colors.muted, 'right', false, cellW - 34);
@@ -229,7 +238,7 @@ class UpgradeComponent {
     }
     if (y < this.listTop || y > this.listBottom) return true;
     const row = this.rows.find(entry => contains(entry.rect, x, y));
-    if (!row) return true;
+    if (!row || (!row.enabled && row.kind !== 'awakening')) return true;
     if (row.kind === 'awakening') {
       this.detail = row;
       this.detailBuy = this.detailBack = null;

@@ -1,6 +1,7 @@
 const EnhancementSystem = require('./EnhancementSystem');
-const { colors, bounds, label, contains, wrap, background, graphic, nine } = require('./GameUI');
-const tiers = ['', '基础', '高级', '精英', '传说'];
+const { colors, bounds, label, contains, wrap, background, graphic, panel } = require('./GameUI');
+const drawGlint = require('./CardGlint');
+const inks = ['', '#402b18', '#263749', '#52300d', '#203955'];
 
 class EnhancementComponent {
   constructor(canvas, systemInfo) {
@@ -40,25 +41,27 @@ class EnhancementComponent {
     label(ctx, '选择强化', x, top + 23, 27, colors.text, 'left', true);
     label(ctx, '强化点 ' + this.state.remainingSelections, x + width, top + 25, 15, colors.gold, 'right', true);
     const rowTop = top + 65;
-    const rowHeight = Math.min(114, (bottom - rowTop - 20) / 3);
+    const rowHeight = Math.min(width / 3, (bottom - rowTop - 20) / 3);
+    const cardWidth = rowHeight * 3;
+    const left = (view.w - cardWidth) / 2;
+    const phase = (Date.now() % 4100) / 4100;
     this.state.availableCards.forEach((card, i) => {
       const y = rowTop + i * (rowHeight + 10);
-      const box = { x, y, width, height: rowHeight };
-      card.bounds = box;
-      if (!nine(ctx, 'component.panel-light', box)) {
-        ctx.fillStyle = '#e7d7b6';
-        ctx.fillRect(x, y, width, rowHeight);
-      }
-      const size = Math.min(72, rowHeight - 14, width * 0.22);
-      const textX = x + size + 21;
-      graphic(ctx, 'enhancement.' + card.type, x + 11, y + (rowHeight - size) / 2, size);
-      label(ctx, card.name, textX, y + rowHeight * 0.34, 19, '#253c39', 'left', true,
-        width - size - 92);
-      graphic(ctx, 'quality.' + card.tier, x + width - 54, y + 9, 21);
-      label(ctx, tiers[card.tier], x + width - 11, y + 20, 11, '#5f472e', 'right');
-      ctx.font = '14px sans-serif';
-      const lines = wrap(ctx, card.description, x + width - textX - 14);
-      lines.forEach((line, lineIndex) => label(ctx, line, textX, y + rowHeight * 0.62 + lineIndex * 16, 14, '#254f48'));
+      card.bounds = { x: left, y, width: cardWidth, height: rowHeight };
+      ctx.save();
+      ctx.translate(left, y);
+      ctx.scale(cardWidth / 600, rowHeight / 200);
+      const ready = graphic(ctx, 'card.' + card.tier, 0, 0, 600, 200);
+      if (!ready) panel(ctx, { x: 4, y: 30, width: 592, height: 145 }, '#e7d7b6', 15);
+      else if (card.tier >= 3) drawGlint(ctx, card.tier, phase);
+      graphic(ctx, 'enhancement.' + card.type, 53, 78, 56);
+      const ink = inks[card.tier];
+      ctx.font = '22px sans-serif';
+      const lines = wrap(ctx, card.description, 368);
+      label(ctx, card.name, 183, lines.length > 1 ? 78 : 88, 32, ink, 'left', true, 368);
+      lines.forEach((line, index) => label(ctx, line, 184,
+        lines.length > 1 ? 109 + index * 23 : 130, 22, ink, 'left', false, 368));
+      ctx.restore();
     });
     ctx.restore();
   }

@@ -121,7 +121,9 @@ function draw() {
     syncRewardSurface();
     game.draw();
     if (run.playing || run.waveClear || run.isDefeatAnimating()) invalidate();
-    else if (run.gameState === 'gameOver' && (run.reviveState.isShowingAd || run.gameOverMessage.until > Date.now())) {
+    else if (run.enhancementComponent.isVisible() && run.enhancementComponent.state.availableCards.some(card => card.tier >= 3)) {
+      refreshTimer = setTimeout(invalidate, 33);
+    } else if (run.gameState === 'gameOver' && (run.reviveState.isShowingAd || run.gameOverMessage.until > Date.now())) {
       refreshTimer = setTimeout(invalidate, 150);
     }
   } else {

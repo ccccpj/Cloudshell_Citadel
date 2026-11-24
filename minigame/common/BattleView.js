@@ -118,6 +118,26 @@ class BattleView {
     ctx.restore();
   }
 
+  drawAutoSwitch(right, controlsY) {
+    const ctx = this.ctx;
+    const on = feedback.preferences().autoWave;
+    const x = right - 62, y = controlsY - 93;
+    this.autoSwitch = { x: x - 4, y: y - 7, width: 70, height: 46 };
+    panel(ctx, { x, y: y + 2, width: 62, height: 31 }, '#47301f', 16);
+    panel(ctx, { x, y, width: 62, height: 31 }, '#ba8b54', 16);
+    panel(ctx, { x: x + 1.4, y: y + 1.2, width: 59.2, height: 28.3 }, '#2e302c', 15);
+    const track = ctx.createLinearGradient(0, y + 2, 0, y + 29);
+    track.addColorStop(0, on ? '#335b51' : '#283234');
+    track.addColorStop(1, on ? '#73ad94' : '#526062');
+    panel(ctx, { x: x + 3, y: y + 3, width: 56, height: 25 }, track, 12);
+    const cx = x + (on ? 46.5 : 15.5);
+    if (!graphic(ctx, on ? 'component.socket-ready' : 'component.socket-cooling', cx - 13.5, y + 2, 27)) {
+      circle(ctx, cx, y + 15.5, 12, '#28413e', '#cea169', 2);
+    }
+    graphic(ctx, 'action.switching', cx - 8.5, y + 7.25, 17);
+    circle(ctx, cx, y + 15.6, 1.65, on ? '#e8d8ad' : '#baae8f');
+  }
+
   drawHud(game) {
     const ctx = this.ctx, { width: w, height: h } = this.canvas;
     const player = game.player, top = (this.info.safeTop || 8) + 4;
@@ -154,6 +174,7 @@ class BattleView {
     gradient.addColorStop(.55, 'rgba(10,30,36,.76)');
     gradient.addColorStop(1, 'rgba(9,27,33,.96)');
     ctx.fillStyle = gradient; ctx.fillRect(0,controlsY-62,w,h-controlsY+62);
+    if (game.playing) this.drawAutoSwitch(right, controlsY);
     const hint = game.hintUntil > game.elapsed ? game.hint :
       (game.levelManager.currentLevel === 1 && game.waveButtons[2].lastUseTime === -Infinity ?
         (feedback.preferences().autoWave ? '自动出波已开启，点按技能可优先释放' : '敌人靠近时，轻点普通波') : '');
