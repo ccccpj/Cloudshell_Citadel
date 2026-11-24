@@ -1,5 +1,5 @@
 const GameStateManager = require('./common/GameStateManager');
-const GameConfig = require('./common/GameConfig');
+const feedback = require('./common/Feedback');
 const ranks = require('./common/RankManager');
 const art = require('./common/Art');
 
@@ -24,15 +24,7 @@ function sizeScreen() {
 }
 sizeScreen();
 const game = new GameStateManager(viewport, ctx, info);
-const audio = GameConfig.AUDIO_CONFIG;
-let music;
-if (audio.MUSIC_ENABLED) {
-  music = wx.createInnerAudioContext();
-  music.src = audio.AUDIO_PATHS.BACKGROUND_MUSIC;
-  music.loop = true;
-  music.volume = audio.MUSIC_VOLUME * audio.MASTER_VOLUME;
-  music.play();
-}
+feedback.setActive(true);
 
 let frame = null;
 let refreshTimer = null;
@@ -69,7 +61,7 @@ function invalidate() {
 function screenState() {
   if (ranks.isOpen()) return 'ranks';
   const run = game.gameComponent;
-  if (!run) return game.menuComponent.page;
+  if (game.showingMenu) return game.menuComponent.page;
   if (run.waveClear) return 'waveClear';
   if (run.gameState === 'gameOver') return 'result';
   if (run.enhancementComponent.isVisible()) return 'enhance';
@@ -150,13 +142,13 @@ wx.onHide(() => {
   refreshTimer = null;
   frame = null;
   if (game.gameComponent) game.gameComponent.checkpoint();
-  if (music) music.pause();
+  feedback.setActive(false);
 });
 wx.onShow(() => {
   if (!hidden) return;
   hidden = false;
   if (game.gameComponent) game.gameComponent.resetFrameClock();
-  if (music) music.play();
+  feedback.setActive(true);
   invalidate();
 });
 art.onReady(invalidate);

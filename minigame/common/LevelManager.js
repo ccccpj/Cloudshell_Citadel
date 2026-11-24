@@ -127,10 +127,12 @@ class LevelManager {
     }
     const switchSeconds = GameConfig.WAVE_CONFIG.ELEMENT_SWITCH_MS / 1000;
     label(ctx, '元素切换间隔 ' + switchSeconds + ' 秒，普通波可穿插', x + 16, mainY - 19, 13, colors.muted);
-    this.resume = { x: x + 12, y: mainY, width: width - 24, height: 48 };
-    this.restart = { x: x + 12, y: mainY + 56, width: (width - 32) / 2, height: 48 };
+    this.resume = { x: x + 12, y: mainY, width: (width - 32) / 2, height: 48 };
+    this.settingsButton = { ...this.resume, x: this.resume.x + this.resume.width + 8 };
+    this.restart = { ...this.resume, y: mainY + 56 };
     this.exit = { ...this.restart, x: this.restart.x + this.restart.width + 8 };
     button(ctx, this.resume, '继续飞行', true);
+    button(ctx, this.settingsButton, '设置');
     button(ctx, this.restart, '重新开始');
     button(ctx, this.exit, '返回首页');
   }
@@ -138,6 +140,7 @@ class LevelManager {
   handleClick(x, y) {
     if (this.showPauseMenu) {
       if (contains(this.resume, x, y)) this.togglePause();
+      else if (contains(this.settingsButton, x, y)) this.gameStateManager.menuComponent.page = 'settings';
       else if (contains(this.restart, x, y)) this.restartGame();
       else if (contains(this.exit, x, y)) this.exitToMenu();
       return true;

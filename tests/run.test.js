@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Game = require('../minigame/common/GameComponent');
+const StateManager = require('../minigame/common/GameStateManager');
 
 function setup(t) {
   const store = new Map();
@@ -37,6 +38,38 @@ test('暂停和后台期间，波、敌人、关卡与释放冷却共用冻结�
   assert.equal(Math.round(game.elapsed), 200);
   assert.equal(Math.round(game.waveComponent.waves[0].radius - before), 18);
   assert.ok(Math.abs(game.levelManager.timeRemaining - (seconds - 0.1)) < 1e-6);
+});
+
+test('暂停设置复用首页偏好，返回后仍停在同一局，继续后才推进计时', t => {
+  const { canvas, info, store, elapse } = setup(t);
+  const manager = new StateManager(canvas, canvas.getContext(), info);
+  manager.setState('playing');
+  const run = manager.gameComponent;
+  const level = run.levelManager;
+  const tap = rect => {
+    manager.handleTouch(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    manager.draw();
+  };
+  tap(level.pauseButton);
+  tap(level.settingsButton);
+  const menu = manager.menuComponent;
+  assert.equal(menu.page, 'settings');
+  const row = () => menu.zones.find(z => z.action === 'toggle:sound').rect;
+  tap(row());
+  assert.equal(store.get('flightFeedback').sound, false);
+  tap(row());
+  elapse(3000);
+  const remaining = level.timeRemaining;
+  run.update();
+  tap(menu.zones.filter(z => z.action === 'home').at(-1).rect);
+  assert.equal(manager.showingMenu, false);
+  assert.equal(manager.gameComponent, run);
+  assert.equal(level.isPaused, true);
+  assert.equal(level.timeRemaining, remaining);
+  tap(level.resume);
+  elapse(100);
+  run.update();
+  assert.ok(Math.abs(level.timeRemaining - remaining + 0.1) < 1e-6);
 });
 
 test('元素切换保护单系冷却，普通波和被拒绝的点击不延长恢复', t => {

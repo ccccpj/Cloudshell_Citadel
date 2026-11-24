@@ -21,17 +21,5 @@ module.exports = {
       console.warn('无法保存本机记录', error);
       return false;
     }
-  },
-  vibrate(type) {
-    if (type === 'heavy') wx.vibrateLong({});
-    else wx.vibrateShort({ type });
-  },
-  playSound(src, volume) {
-    const sound = wx.createInnerAudioContext();
-    sound.onEnded(() => sound.destroy());
-    sound.onError(() => sound.destroy());
-    sound.src = src;
-    sound.volume = volume;
-    sound.play();
   }
 };

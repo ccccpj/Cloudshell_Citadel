@@ -33,7 +33,6 @@ class UpgradeComponent {
     this.completeCallback = completeCallback;
     this.state.isShowing = true;
     this.selectWave(null);
-    this.purchaseRequired = this.availablePurchases(points).length > 0;
     return true;
   }
 
@@ -81,25 +80,6 @@ class UpgradeComponent {
       action: skill.unlocked ? '已觉醒' : '查看条件  ›', enabled: true
     }));
     return [...upgrades, ...awakenings];
-  }
-
-  availablePurchases(points) {
-    const options = [];
-    const system = this.upgradeSystem;
-    for (const element of this.listRows(points, null)) {
-      if (!element.unlocked) {
-        if (element.enabled) options.push(element);
-        continue;
-      }
-      for (const row of this.listRows(points, element.key)) {
-        if (row.kind === 'upgrade' && row.enabled) options.push({ ...row, wave: element.key });
-        if (row.kind === 'awakening' && points >= system.upgradeConfig.awakeningCost &&
-            system.canUnlockAwakening(element.key, row.key)) {
-          options.push({ ...row, wave: element.key, cost: system.upgradeConfig.awakeningCost });
-        }
-      }
-    }
-    return options;
   }
 
   draw(ctx) {
@@ -179,11 +159,8 @@ class UpgradeComponent {
     const nextX = this.backButton ? x + this.backButton.width + 8 : x;
     this.continueButton = { x: nextX, y: bottom - 48, width: x + width - nextX, height: 48 };
     if (wave) button(ctx, this.backButton, '返回元素');
-    ctx.save();
-    if (this.purchaseRequired) ctx.globalAlpha *= 0.72;
-    const nextLabel = this.purchaseRequired ? '先完成一项升级' : points ? '保留 ' + points + ' 点并继续' : '进入下一关';
-    button(ctx, this.continueButton, nextLabel, !this.purchaseRequired);
-    ctx.restore();
+    const nextLabel = points ? '保留 ' + points + ' 点并继续' : '进入下一关';
+    button(ctx, this.continueButton, nextLabel, true);
     if (this.detail) this.drawDetail(ctx, view, points);
     ctx.restore();
   }
@@ -233,7 +210,6 @@ class UpgradeComponent {
       if (contains(this.detailBack, x, y)) this.detail = null;
       else if (contains(this.detailBuy, x, y) && system.unlockAwakening(wave, this.detail.key)) {
         experience.spendPoints('upgradePoints', system.upgradeConfig.awakeningCost);
-        this.purchaseRequired = false;
         this.notice = '已觉醒' + this.detail.title;
         this.detail = null;
         if (changed) changed(system);
@@ -241,7 +217,6 @@ class UpgradeComponent {
       return true;
     }
     if (contains(this.continueButton, x, y)) {
-      if (this.purchaseRequired) return true;
       this.state.isShowing = false;
       const next = this.completeCallback;
       this.completeCallback = null;
@@ -264,7 +239,6 @@ class UpgradeComponent {
       const bought = row.kind === 'element' ? system.unlockWave(row.key) : system.upgradeWave(wave, row.key);
       if (bought) {
         experience.spendPoints('upgradePoints', row.cost);
-        this.purchaseRequired = false;
         if (row.kind === 'element') this.selectWave(row.key);
         this.notice = (row.kind === 'element' ? '已解锁' : '已提升') + row.title;
         if (changed) changed(system);

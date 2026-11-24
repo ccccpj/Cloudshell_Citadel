@@ -8,12 +8,33 @@
     return {windowWidth:r.width, windowHeight:r.height, pixelRatio:window.devicePixelRatio,
       safeArea:{top:0, bottom:r.height}};
   }
+  // Touch browsers grant media playback on the completed tap (click).
+  let pendingMusic = null;
+  canvas.addEventListener('click', () => {
+    if (pendingMusic && !document.hidden) pendingMusic();
+  });
   function audio() {
     const sound = new Audio();
+    function clearPending() {
+      if (pendingMusic === play) pendingMusic = null;
+    }
+    function play() {
+      if (sound.loop) pendingMusic = play;
+      sound.play().then(clearPending, error => {
+        if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') {
+          clearPending();
+          console.warn('音频播放失败', sound.src, error);
+        }
+      });
+    }
+    function pause() {
+      clearPending();
+      sound.pause();
+    }
     return {
       set src(value){sound.src=value}, set loop(value){sound.loop=value}, set volume(value){sound.volume=value},
       onEnded(fn){sound.addEventListener('ended',fn)}, onError(fn){sound.addEventListener('error',fn)},
-      play(){sound.play().catch(()=>{})}, pause(){sound.pause()}, destroy(){sound.pause();sound.removeAttribute('src')}
+      play, pause, destroy(){pause();sound.removeAttribute('src')}
     };
   }
   for (const [eventName,key] of Object.entries({pointerdown:'Start',pointermove:'Move',pointerup:'End',pointercancel:'Cancel'})) {

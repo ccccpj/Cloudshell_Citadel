@@ -26,14 +26,21 @@ class GameStateManager {
     this.setState('playing');
   }
 
+  get showingMenu() {
+    return !this.gameComponent || this.menuComponent.page === 'settings';
+  }
+
   draw() {
-    if (this.gameComponent) this.gameComponent.draw();
-    else this.menuComponent.draw();
+    if (this.showingMenu) this.menuComponent.draw(Boolean(this.gameComponent));
+    else this.gameComponent.draw();
   }
 
   handleTouch(x, y) {
-    if (this.gameComponent) this.gameComponent.handleTouch(x, y);
-    else if (this.menuComponent.handleTouch(x, y) === 'startGame') this.setState('playing');
+    if (this.showingMenu) {
+      if (this.menuComponent.handleTouch(x, y) === 'startGame') this.setState('playing');
+    } else {
+      this.gameComponent.handleTouch(x, y);
+    }
   }
 }
 
