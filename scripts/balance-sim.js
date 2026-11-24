@@ -142,23 +142,6 @@ function chooseRewards(game, order, milestones, behaviorRng, profile) {
       invest(game, element, [['damage', 2]]);
     }
   }
-  if (panel.purchaseRequired) {
-    // Spend the minimum when saving for an expensive target.
-    const points = game.experienceSystem.getExperienceStatus().upgradePoints;
-    const [choice] = panel.availablePurchases(points).sort((a, b) => a.cost - b.cost);
-    if (panel.state.selectedWaveType !== (choice.wave || null)) {
-      if (panel.backButton) {
-        tap(game, panel.backButton);
-        panel.draw(ctx);
-      }
-      if (choice.wave) buyRow(game, choice.wave, 'element');
-    }
-    buyRow(game, choice.key, choice.kind);
-    if (choice.kind === 'awakening') {
-      tap(game, panel.detailBuy);
-      panel.draw(ctx);
-    }
-  }
   tap(game, panel.continueButton);
 }
 

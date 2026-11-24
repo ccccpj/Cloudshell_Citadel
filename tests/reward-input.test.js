@@ -30,7 +30,7 @@ test('触摸入口丢弃跨屏长按和连点，停手后一次点击只选择�
     wx['on' + e] = fn => { callbacks[e] = fn; };
   }
   const modules = {
-    GameStateManager: Game, GameConfig: {AUDIO_CONFIG:{}}, RankManager: {isOpen:()=>false}, Art: {onReady(){}}
+    GameStateManager: Game, Feedback: {setActive(){}}, RankManager: {isOpen:()=>false}, Art: {onReady(){}}
   };
   vm.runInNewContext(fs.readFileSync(require.resolve('../minigame/game'), 'utf8'), {
     wx, require: key => modules[key.split('/').pop()], Date: {now:()=>now},

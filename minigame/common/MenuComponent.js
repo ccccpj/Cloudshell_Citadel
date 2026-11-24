@@ -1,8 +1,9 @@
+const feedback = require('./Feedback');
 const ranks = require('./RankManager');
 const { COMPLIANCE_CONFIG: compliance } = require('./GameConfig');
 const collection = require('./Collection');
 const art = require('./Art');
-const { bounds, contains, panel, label, wrap, nine, graphic, buttonLabel } = require('./GameUI');
+const { bounds, contains, panel, label, wrap, nine, graphic, button, buttonLabel } = require('./GameUI');
 
 const W = 375, H = 620;
 const cream = '#fff1d2', soft = '#dccea9', ink = '#283b38';
@@ -52,7 +53,7 @@ class MenuComponent {
 
   get healthAdviceOpen() { return this.page === 'guide'; }
 
-  draw() {
+  draw(fromPause = false) {
     const c = this.ctx, view = bounds(this.systemInfo);
     const home = this.page === 'home';
     this.zones = [];
@@ -79,6 +80,7 @@ class MenuComponent {
     switch (this.page) {
       case 'home': this.home(); break;
       case 'guide': this.guide(); break;
+      case 'settings': this.settings(fromPause); break;
       case 'codex': this.codex(); break;
       case 'entry': this.entry(); break;
       case 'forms': this.forms(); break;
@@ -134,6 +136,7 @@ class MenuComponent {
     title(c, '守住圆心', W / 2, 53, 54);
     title(c, 'Cloudshell Citadel', W / 2, 97, 20);
     c.restore();
+    this.control('settings', '设置', 300, 2, 67, 44);
     const legal = [[compliance.APPROVAL_NUMBER, '游戏批准文号 '],
       [compliance.PUBLICATION_NUMBER, '网络游戏出版号 '],
       [compliance.COPYRIGHT_REG_NO, '著作权登记号 ']].filter(([v]) => v);
@@ -146,6 +149,21 @@ class MenuComponent {
       579 - lift + i * 14, 11, cream, 'center'));
     label(c, [compliance.AGE_LABEL, '健康游戏忠告'].filter(Boolean).join('　·　'), W / 2, 605, 12, cream, 'center');
     this.zone('guide', 40, 585, 295, 35);
+  }
+
+  settings(fromPause) {
+    this.heading('设置', '');
+    const current = feedback.preferences();
+    const rows = [['sound', '游戏音效'], ['music', '背景音乐'], ['vibration', '设备震动']];
+    rows.forEach(([key, name], i) => {
+      const y = 112 + i * 91;
+      this.plate(19, y, 337, 76, false);
+      label(this.ctx, name, 42, y + 38, 19, cream, 'left', true);
+      button(this.ctx, { x: 225, y: y + 11, width: 109, height: 54 },
+        current[key] ? '已开启' : '已关闭', current[key]);
+      this.zone('toggle:' + key, 19, y, 337, 76);
+    });
+    this.control('home', fromPause ? '返回暂停菜单' : '返回首页', 42, 522, 291, 54);
   }
 
   guide() {
@@ -253,7 +271,8 @@ class MenuComponent {
       case 'rank':
         ranks.open();
         return 'showRank';
-      case 'home': case 'codex': case 'forms': this.page = action; break;
+      case 'toggle': feedback.toggle(key); break;
+      case 'settings': case 'home': case 'codex': case 'forms': this.page = action; break;
       case 'prev': this.codexPage--; break;
       case 'next': this.codexPage++; break;
       case 'filter': this.codexStage = Number(key); this.codexPage = 0; break;

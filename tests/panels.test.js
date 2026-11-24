@@ -61,7 +61,7 @@ test('按卡面数值应用强化，每次三选一都必须领取', () => {
   assert.equal(panel.isShowing(), false);
 });
 
-test('工坊须先购买一次；查看属性、没有达成前置的觉醒或点击下一关均不算购买', () => {
+test('工坊可直接保留全部升级点，也可在查看属性后购买并继续', () => {
   const exp = new Experience();
   exp.playerExperience.upgradePoints = 8;
   const system = new System();
@@ -74,15 +74,18 @@ test('工坊须先购买一次；查看属性、没有达成前置的觉醒或�
   panel.showUpgradeScreen(system, exp, () => complete++);
   panel.draw(ctx);
   click(panel.continueButton);
+  assert.equal(complete, 1);
+  assert.equal(exp.getExperienceStatus().upgradePoints, 8);
+  panel.showUpgradeScreen(system, exp, () => complete++);
+  panel.draw(ctx);
   click(panel.rows.find(row => row.key === 'normal').rect);
   click(panel.rows.find(row => row.kind === 'awakening').rect);
   click(panel.detailBack);
-  click(panel.continueButton);
-  assert.equal(complete, 0);
+  assert.equal(complete, 1);
   assert.equal(exp.getExperienceStatus().upgradePoints, 8);
   click(panel.rows.find(row => row.key === 'damage').rect);
   click(panel.continueButton);
-  assert.equal(complete, 1);
+  assert.equal(complete, 2);
   assert.equal(exp.getExperienceStatus().upgradePoints, 7);
 });
 
@@ -111,8 +114,6 @@ test('工坊无可买项目可继续，唯一可购买项目为觉醒时领取�
   click(panel.continueButton);
   assert.equal(complete, 1);
   show(8);
-  click(panel.continueButton);
-  assert.equal(complete, 1);
   click(panel.rows.find(row => row.key === 'normal').rect);
   click(panel.rows.find(row => row.key === 'pureForce').rect);
   click(panel.detailBuy);

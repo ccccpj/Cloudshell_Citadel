@@ -1,3 +1,4 @@
+const feedback = require('./Feedback');
 const BattleView = require('./BattleView');
 const Art = require('./Art');
 const Collection = require('./Collection');
@@ -105,7 +106,7 @@ class GameComponent {
 
   sound(key) {
     const config = GameConfig.AUDIO_CONFIG;
-    if (config.SOUND_ENABLED) Utils.playSound(config.AUDIO_PATHS[key], config.SOUND_VOLUME * config.MASTER_VOLUME * 0.7);
+    feedback.playSound(config.AUDIO_PATHS[key], config.SOUND_VOLUME * config.MASTER_VOLUME * 0.7);
   }
 
   resize() {
@@ -204,7 +205,7 @@ class GameComponent {
     this.setFormAction('cast');
     this.coreEffect('cast-' + button.type);
     this.sound('WAVE_RELEASE');
-    Utils.vibrate('light');
+    feedback.vibrate('light');
     if (button.type === 'fire' && this.upgradeSystem.hasAwakening('fire', 'phoenixRebirth')) {
       this.phoenixReadyAt = this.elapsed + this.waveCooldown(button.type);
     }

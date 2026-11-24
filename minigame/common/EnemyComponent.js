@@ -1,3 +1,4 @@
+const feedback = require('./Feedback');
 // 敌人组件
 const GameConfig = require('./GameConfig.js');
 const Utils = require('./Utils.js');
@@ -226,9 +227,9 @@ class EnemyComponent {
       if (this.onEnemyKilled) this.onEnemyKilled(enemy.scoreValue, enemy.type);
     }
     if (removed) {
-      Utils.vibrate('light');
+      feedback.vibrate('light');
       const audio = GameConfig.AUDIO_CONFIG;
-      if (audio.SOUND_ENABLED) Utils.playSound(audio.AUDIO_PATHS.ENEMY_DEATH, audio.SOUND_VOLUME * audio.MASTER_VOLUME * 0.6);
+      feedback.playSound(audio.AUDIO_PATHS.ENEMY_DEATH, audio.SOUND_VOLUME * audio.MASTER_VOLUME * 0.6);
     }
   }
 
@@ -621,7 +622,7 @@ class EnemyComponent {
         total += damage;
       }
     }
-    if (total > 0) Utils.vibrate('medium');
+    if (total > 0) feedback.vibrate('medium');
     return total;
   }
   
