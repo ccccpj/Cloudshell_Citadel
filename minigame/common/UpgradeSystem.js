@@ -379,6 +379,11 @@ class UpgradeSystem {
         return this.waveUpgrades[waveType] && this.waveUpgrades[waveType].awakening.includes(skillKey);
     }
     
+    hasZeroCooldown(type) {
+        return (type === 'normal' && this.hasAwakening(type, 'instantCast')) ||
+            (type === 'wind' && this.hasAwakening(type, 'endlessWind'));
+    }
+
     /**
      * 获取已解锁的觉醒技能列表
      */

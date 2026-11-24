@@ -2,6 +2,7 @@ const { colors, panel, label, button, contains, graphic, nine, background } = re
 
 const { BATTLEFIELD } = require('./GameConfig');
 const Art = require('./Art');
+const feedback = require('./Feedback');
 const { drawEffect, duration } = require('./FlightEffects');
 const TAU = Math.PI * 2;
 const PASSING_CLOUDS = 'sky/passing-clouds.png';
@@ -154,7 +155,8 @@ class BattleView {
     gradient.addColorStop(1, 'rgba(9,27,33,.96)');
     ctx.fillStyle = gradient; ctx.fillRect(0,controlsY-62,w,h-controlsY+62);
     const hint = game.hintUntil > game.elapsed ? game.hint :
-      (game.levelManager.currentLevel === 1 && game.waveButtons[2].lastUseTime === -Infinity ? '敌人靠近时，轻点普通波' : '');
+      (game.levelManager.currentLevel === 1 && game.waveButtons[2].lastUseTime === -Infinity ?
+        (feedback.preferences().autoWave ? '自动出波已开启，点按技能可优先释放' : '敌人靠近时，轻点普通波') : '');
     if (hint) label(ctx, hint, w/2, controlsY-43, 13, colors.text, 'center', true);
     if (game.discovery && game.elapsed - game.discovery.at < 1800) {
       const {species, at} = game.discovery;
@@ -182,7 +184,7 @@ class BattleView {
         ctx.beginPath(); ctx.arc(b.x,b.y,r-2,-Math.PI/2,-Math.PI/2 + TAU * recovery.remaining/recovery.duration);
         ctx.strokeStyle = recovery.switching ? colors.mint : colors.gold; ctx.lineWidth = 3; ctx.stroke();
       }
-      const text = recovery.switching && unlocked ? '切换中' : unlocked && recovery.remaining > .01 ?
+      const text = b === game.queuedCast ? '已排队' : recovery.switching && unlocked ? '切换中' : unlocked && recovery.remaining > .01 ?
         (recovery.remaining / 1000).toFixed(1)+'秒' : b.label;
       label(ctx,text,b.x,b.y+b.radius+13,12,unlocked ? colors.text : colors.muted,'center');
     }

@@ -174,7 +174,7 @@ function attack(game, profile, order, inputRng) {
 function run(seed, name, order, levels, width, height) {
   Math.random = rng(seed);
   const inputRng = rng(seed ^ 0xbb67ae85);
-  const storage = new Map();
+  const storage = new Map([['flightFeedback', { autoWave: opts.mode !== 'manual' }]]);
   global.wx = {
     getStorageSync: k => storage.get(k), setStorageSync: (k, v) => storage.set(k, v),
     getOpenDataContext: () => ({ postMessage: noop }), vibrateShort: noop, vibrateLong: noop,
@@ -202,7 +202,7 @@ function run(seed, name, order, levels, width, height) {
   let next = 0;
   while (game.gameState === 'playing' && game.levelManager.currentLevel <= levels) {
     const level = game.levelManager.currentLevel;
-    if (name !== 'idle' && game.elapsed >= next) {
+    if (opts.mode !== 'auto' && name !== 'idle' && game.elapsed >= next) {
       attack(game, profile, order, inputRng);
       next = game.elapsed + profile.interval * (0.85 + 0.3 * inputRng()) * 1000;
     }
@@ -247,6 +247,7 @@ function summarize(runs, levels) {
 
 const { parseArgs } = require('node:util');
 const { values } = parseArgs({ options: {
+  mode: { type: 'string', default: 'manual' },
   seeds: { type: 'string', default: '24' }, seed: { type: 'string', default: '1' },
   levels: { type: 'string', default: '10' }, profiles: { type: 'string', default: 'novice,regular,skilled' },
   element: { type: 'string', default: 'fire' }, order: { type: 'string' }, stride: { type: 'string', default: '1' }, width: { type: 'string', default: '375' },
@@ -257,6 +258,7 @@ for (const name of ['seed', 'stride', 'seeds', 'levels', 'width', 'height']) {
   opts[name] = Number(values[name]);
   if (!Number.isSafeInteger(opts[name]) || opts[name] < (name === 'seed' ? 0 : 1)) throw new Error('Invalid --' + name);
 }
+if (!['manual', 'auto', 'mixed'].includes(opts.mode)) throw new Error('Unknown attack mode');
 if (opts.order.some(type => !Object.hasOwn(BUILDS, type)) || new Set(opts.order).size !== opts.order.length || opts.profiles.some(p => !Object.hasOwn(PROFILES, p))) throw new Error('Unknown build or profile');
 const output = { options: opts, results: {} };
 const originalLog = console.log;

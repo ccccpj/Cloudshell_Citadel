@@ -1,7 +1,7 @@
 const Utils = require('./Utils');
 const audio = require('./GameConfig').AUDIO_CONFIG;
 
-const defaults = { sound: audio.SOUND_ENABLED, music: audio.MUSIC_ENABLED, vibration: true };
+const defaults = { sound: audio.SOUND_ENABLED, music: audio.MUSIC_ENABLED, vibration: true, autoWave: false };
 const storageKey = 'flightFeedback';
 let options;
 let music;

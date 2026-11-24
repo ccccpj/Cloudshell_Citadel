@@ -154,7 +154,7 @@ class MenuComponent {
   settings(fromPause) {
     this.heading('设置', '');
     const current = feedback.preferences();
-    const rows = [['sound', '游戏音效'], ['music', '背景音乐'], ['vibration', '设备震动']];
+    const rows = [['sound', '游戏音效'], ['music', '背景音乐'], ['vibration', '设备震动'], ['autoWave', '全元素自动出波']];
     rows.forEach(([key, name], i) => {
       const y = 112 + i * 91;
       this.plate(19, y, 337, 76, false);
