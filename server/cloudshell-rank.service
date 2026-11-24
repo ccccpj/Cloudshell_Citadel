@@ -1,0 +1,19 @@
+[Unit]
+Description=Cloudshell Citadel web leaderboard
+After=network.target
+
+[Service]
+DynamicUser=yes
+StateDirectory=cloudshell-rank
+StateDirectoryMode=0700
+WorkingDirectory=/opt/cloudshell-rank
+Environment=RANK_DB=/var/lib/cloudshell-rank/rank.sqlite
+ExecStart=/opt/cpj-blog/runtime/node-v22.17.0-linux-x64/bin/node /opt/cloudshell-rank/server/web-rank.js
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -7,5 +7,17 @@
 *{box-sizing:border-box}body{margin:0;display:grid;place-items:center;height:100vh;height:100dvh;background:#182e32}
 canvas{display:block;width:min(100vw,56.22vh);height:100%;max-width:100%;background:#143b42;touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent}
 @media(max-aspect-ratio:9/16){canvas{width:100vw}}
+dialog{box-sizing:border-box;width:min(90vw,340px);padding:24px;color:#fff1d2;background:#203d3c;border:1px solid #ac9164;border-radius:14px;font:16px system-ui}
+dialog::backdrop{background:#091b20c9}dialog form{display:grid;gap:14px}dialog label{font: bold 22px serif}
+dialog input,dialog button{box-sizing:border-box;font:inherit;border-radius:8px;padding:10px;color:inherit}
+dialog input{width:100%;background:#142e30;border:1px solid #ab9673}dialog small{color:#d0d8c9}
+dialog menu{margin:0;padding:0;display:flex;gap:10px}dialog button{flex:1;border:1px solid #93784f;background:#344c49;min-height:44px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+dialog button[type=submit]{background:#725335}dialog button:focus,dialog button:focus-visible{outline:0}dialog button:focus-visible{text-decoration:underline;text-underline-offset:4px}
+dialog [role=status]:empty{display:none}
 </style></head>
-<body><canvas aria-label="守住圆心 · 点击技能释放冲击波"></canvas><script src="/platform.js"></script><script src="/game.bundle.js"></script></body></html>
+<body><canvas aria-label="守住圆心 · 点击技能释放冲击波"></canvas><dialog id="nickname-dialog" aria-labelledby="nickname-label"><form>
+<label id="nickname-label" for="nickname">网页榜昵称</label>
+<input id="nickname" name="nickname" required autocomplete="nickname" aria-describedby="nickname-help">
+<small id="nickname-help">1–16 个字，可用文字、数字、空格、短横线或下划线。</small>
+<span role="status"></span><menu><button type="button">取消</button><button type="submit">保存</button></menu>
+</form></dialog><script src="/platform.js"></script><script src="/rank.js"></script><script src="/game.bundle.js"></script></body></html>

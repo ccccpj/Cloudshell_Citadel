@@ -101,6 +101,10 @@ test('元素切换保护单系冷却，普通波和被拒绝的点击不延长�
   assert.equal(wind.lastUseTime, 900);
   assert.equal(game.waveRecovery(wind).remaining, 0);
   assert.deepEqual(game.waveRecovery(ice), { remaining: 850, duration: 850, switching: true });
+  game.enhancementComponent.enhancementSystem.playerStats.cooldownAcceleration = 100;
+  assert.equal(game.waveRecovery(ice).remaining, 425);
+  game.enhancementComponent.enhancementSystem.playerStats.cooldownAcceleration = 9900;
+  assert.equal(game.waveRecovery(ice).remaining, 8.5);
 });
 
 test('满两点每秒的回复在一秒战斗内补两点，暂停保留半个回复周期', t => {

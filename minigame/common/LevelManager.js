@@ -125,7 +125,7 @@ class LevelManager {
         }
       }
     }
-    const switchSeconds = GameConfig.WAVE_CONFIG.ELEMENT_SWITCH_MS / 1000;
+    const switchSeconds = Number((this.gameComponent.elementSwitchMs / 1000).toPrecision(3));
     label(ctx, '元素切换间隔 ' + switchSeconds + ' 秒，普通波可穿插', x + 16, mainY - 19, 13, colors.muted);
     this.resume = { x: x + 12, y: mainY, width: (width - 32) / 2, height: 48 };
     this.settingsButton = { ...this.resume, x: this.resume.x + this.resume.width + 8 };

@@ -178,11 +178,16 @@ class GameComponent {
       this.enhancementComponent.enhancementSystem.calculateCooldownReduction());
   }
 
+  get elementSwitchMs() {
+    return GameConfig.WAVE_CONFIG.ELEMENT_SWITCH_MS *
+      this.enhancementComponent.enhancementSystem.calculateCooldownReduction();
+  }
+
   waveRecovery(button) {
     const duration = this.waveCooldown(button.type);
     const remaining = Math.max(0, duration - (this.elapsed - button.lastUseTime));
     if (button.type !== 'normal' && this.lastElementButton && this.lastElementButton !== button) {
-      const switchMs = GameConfig.WAVE_CONFIG.ELEMENT_SWITCH_MS;
+      const switchMs = this.elementSwitchMs;
       const switchRemaining = switchMs - (this.elapsed - this.lastElementButton.lastUseTime);
       if (switchRemaining > remaining) return { remaining: switchRemaining, duration: switchMs, switching: true };
     }
