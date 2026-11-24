@@ -41,3 +41,22 @@ test('两张尚未就绪的同包图片共享一次加载，静态界面收到�
     for(const name of paths) assert.equal(art.image(name).path,'formLater/'+name);
   } finally { delete global.wx; }
 });
+
+test('五种波放大后保持实际半径和波宽，停止放大起手贴图', () => {
+  for (const clip of art.effects.clips.filter(item => item.category === 'wave')) {
+    const arcs = [], strokes = [], images = [];
+    const ctx = new Proxy({
+      globalAlpha: 1,
+      arc(x, y, radius) { arcs.push(radius); },
+      stroke() { strokes.push(this.lineWidth); },
+      drawImage(...args) { images.push(args); }
+    }, { get(target, key) { return target[key] ?? (() => {}); } });
+    const radius = clip.sourceRadius * 3;
+    art.player.drawWave(ctx, {}, clip, 800, 100, 200, radius, 9, .5);
+    assert.equal(arcs[0], radius, clip.id);
+    assert.equal(strokes[0], 9, clip.id);
+    assert.equal(images.length, 0, clip.id);
+    art.player.drawWave(ctx, {}, clip, 60, 100, 200, 15, 9);
+    assert.equal(images.length, 1, clip.id);
+  }
+});

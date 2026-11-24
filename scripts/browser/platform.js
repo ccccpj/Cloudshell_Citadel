@@ -37,6 +37,59 @@
       play, pause, destroy(){pause();sound.removeAttribute('src')}
     };
   }
+  function musicPlayer() {
+    const AudioEngine = window.AudioContext || window.webkitAudioContext;
+    if (!AudioEngine) return audio();
+    const context = new AudioEngine();
+    const gain = context.createGain();
+    gain.connect(context.destination);
+    let path, decoded, source, startedAt, offset = 0, wanted = false, fallback;
+    function play() {
+      wanted = true;
+      if (fallback) return fallback.play();
+      pendingMusic = play;
+      if (!decoded) {
+        decoded = fetch(path).then(response => {
+          if (!response.ok) throw new Error('音乐读取失败');
+          return response.arrayBuffer();
+        }).then(bytes => context.decodeAudioData(bytes));
+      }
+      Promise.all([context.resume(), decoded]).then(([, buffer]) => {
+        if (!wanted || source || fallback || context.state !== 'running') return;
+        source = context.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(gain);
+        startedAt = context.currentTime - offset;
+        source.start(0, offset);
+        if (pendingMusic === play) pendingMusic = null;
+      }).catch(() => {
+        if (!fallback) {
+          fallback = audio();
+          fallback.src = path;
+          fallback.loop = true;
+          fallback.volume = gain.gain.value;
+        }
+        if (wanted) fallback.play();
+      });
+    }
+    function pause() {
+      wanted = false;
+      if (pendingMusic === play) pendingMusic = null;
+      if (fallback) fallback.pause();
+      if (source) {
+        offset = (context.currentTime - startedAt) % source.buffer.duration;
+        source.stop();
+        source.disconnect();
+        source = null;
+      }
+    }
+    return {
+      set src(value) { path = value; },
+      set volume(value) { gain.gain.value = value; },
+      play, pause
+    };
+  }
   for (const [eventName,key] of Object.entries({pointerdown:'Start',pointermove:'Move',pointerup:'End',pointercancel:'Cancel'})) {
     canvas.addEventListener(eventName, e => {
       if (eventName === 'pointerdown') canvas.setPointerCapture(e.pointerId);
@@ -46,7 +99,7 @@
   }
   window.wx = {
     createCanvas:()=>canvas,createImage:()=>new Image(),getWindowInfo:info,getSystemInfoSync:info,
-    loadSubpackage:options=>options.success(),createInnerAudioContext:audio,
+    loadSubpackage:options=>options.success(),createInnerAudioContext:options => options?.useWebAudioImplement ? musicPlayer() : audio(),
     getStorageSync:key=>JSON.parse(localStorage.getItem(store+key)),
     setStorageSync:(key,value)=>localStorage.setItem(store+key,JSON.stringify(value)),
     onWindowResize:fn=>new ResizeObserver(fn).observe(canvas),

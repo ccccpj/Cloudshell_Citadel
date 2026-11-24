@@ -44,6 +44,7 @@ class BattleView {
     game.enemyComponent.draw();
     this.drawCore(game);
     ctx.restore();
+    this.drawImpact(game);
   }
 
   drawCore(game) {
@@ -78,6 +79,44 @@ class BattleView {
     }
   }
 
+  impactAge(game) {
+    return game.impact ? game.elapsed - game.impact.at + (game.gameState === 'gameOver' ? game.defeatAge : 0) : Infinity;
+  }
+
+  drawImpact(game) {
+    const age = this.impactAge(game);
+    if (age >= 700) return;
+    const ctx = this.ctx, { width, height } = this.canvas;
+    const { x, y, radius } = game.player;
+    ctx.save();
+    if (age < 240) {
+      const edge = ctx.createLinearGradient(0, 0, width, 0);
+      edge.addColorStop(0, '#b73137'); edge.addColorStop(.17, 'rgba(183,49,55,0)');
+      edge.addColorStop(.83, 'rgba(183,49,55,0)'); edge.addColorStop(1, '#b73137');
+      ctx.globalAlpha *= .55 * (1 - age / 240);
+      ctx.fillStyle = edge;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.translate(this.left + x * this.scale, this.top + y * this.scale);
+    ctx.scale(this.scale, this.scale);
+    drawEffect(ctx, 'core-hit', age, 0, 0, radius * 4.2);
+    ctx.globalAlpha *= Math.min(1, (700 - age) / 250);
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#491f29';
+    ctx.fillStyle = '#ffcfbc';
+    const loss = '−' + Math.ceil(game.impact.lost);
+    const textY = -radius - 10 - Math.min(1, age / 500) * 16;
+    ctx.strokeText(loss, 0, textY);
+    ctx.fillText(loss, 0, textY);
+    ctx.restore();
+  }
+
   drawHud(game) {
     const ctx = this.ctx, { width: w, height: h } = this.canvas;
     const player = game.player, top = (this.info.safeTop || 8) + 4;
@@ -99,6 +138,13 @@ class BattleView {
     label(ctx, '生命 '+Math.ceil(player.health)+' / '+Math.ceil(player.maxHealth),left,top+32,11,colors.text);
     label(ctx, '等级 '+exp.currentLevel,xpX,top+32,11,colors.muted);
     ctx.fillStyle = '#34504b'; ctx.fillRect(left,top+42,hpW,4); ctx.fillRect(xpX,top+42,right-xpX,4);
+    const hitAge = this.impactAge(game);
+    if (hitAge < 700) {
+      const previous = game.impact.before / player.maxHealth;
+      const remaining = Math.max(0, previous - hpRatio) * Math.min(1, (700 - hitAge) / 400);
+      ctx.fillStyle = '#ff907a';
+      ctx.fillRect(left + hpW * hpRatio, top + 42, hpW * remaining, 4);
+    }
     ctx.fillStyle = hpRatio < .25 ? '#ff9c71' : '#efca78'; ctx.fillRect(left,top+42,hpW*hpRatio,4);
     ctx.fillStyle = '#8ad2c0'; ctx.fillRect(xpX,top+42,(right-xpX)*exp.currentLevelProgress/100,4);
     const controlsY = game.waveButtons[0].y;

@@ -171,19 +171,8 @@ class WaveComponent {
     }
     for (const wave of this.waves) {
       const clip = Art.fxById['wave-' + wave.type], image = Art.image(clip.file);
-      if (image) {
-        Art.player.drawWave(ctx, image, clip, this.elapsed - wave.startedAt, wave.x, wave.y,
-          wave.radius, wave.width, wave.alpha);
-      } else {
-        ctx.save();
-        ctx.globalAlpha = wave.alpha;
-        ctx.strokeStyle = GameConfig.WAVE_CONFIG.TYPES[wave.type].color;
-        ctx.lineWidth = wave.width;
-        ctx.beginPath();
-        ctx.arc(wave.x, wave.y, wave.radius, 0, 2 * Math.PI);
-        ctx.stroke();
-        ctx.restore();
-      }
+      Art.player.drawWave(ctx, image, clip, this.elapsed - wave.startedAt, wave.x, wave.y,
+        wave.radius, wave.width, wave.alpha);
     }
     for (const area of this.polarStorms) {
       drawEffect(ctx, 'polar-storm', this.elapsed - area.startTime, area.x, area.y,
